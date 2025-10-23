@@ -1,0 +1,297 @@
+# To improve query performance, we strongly suggest adding indexes to any field that you plan to filter or sort by
+# Add the `@index` or `@index(unique: true)` annotation after any non-key field
+# https://academy.subquery.network/build/graphql.html#indexing-by-non-primary-key-field
+
+type Account @entity {
+  """
+  id field is always required and must look like this
+  """
+  id: ID!
+  """
+  The first block on which we see a transfer involving this account
+  """
+  firstSeenLedger: Int
+  """
+  The most recent block on which we see a transfer involving this account
+  """
+  lastSeenLedger: Int
+  sentTransfers: [Transfer] @derivedFrom(field: "from") # These are virtual properties to help us navigate to the correct foreign key of Transfer
+  receivedTransfers: [Transfer] @derivedFrom(field: "to") # These are virtual properties to help us navigate to the correct foreign key of Transfer
+  sentPayments: [Payment] @derivedFrom(field: "from") # These are virtual properties to help us navigate to the correct foreign key of Payment
+  receivedPayments: [Payment] @derivedFrom(field: "to") # These are virtual properties to help us navigate to the correct foreign key of Payment
+}
+
+type Transfer @entity {
+  """
+  id field is always required and must look like this
+  """
+  id: ID!
+  """
+  The ledger of the transfer
+  """
+  ledger: Int!
+  """
+  The date of the transfer
+  """
+  date: Date!
+  """
+  The contract that was transferred
+  """
+  contract: String!
+  """
+  The account that transfers are made from
+  """
+  from: Account!
+  """
+  The account that transfers are made to
+  """
+  to: Account!
+  """
+  Value that is transferred
+  """
+  value: BigInt!
+}
+
+type Payment @entity {
+  id: ID!
+  txHash: String!
+  """
+  The account that payments are made from
+  """
+  from: Account!
+  """
+  The account that payments are made to
+  """
+  to: Account!
+  """
+  Amount that is transferred
+  """
+  amount: String!
+}
+
+
+type RemoveLiquiditEntity @entity {
+  id: ID!               # txHash-idx
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!
+  amount_0: String!
+  amount_1: String!
+  liquidity: String!
+  to: String!
+  block: String!
+  timestamp: String!
+}
+
+type AddLiquidityEventEntity @entity {
+  id: ID!           # txHash-logIdx
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!
+  amount_0: String!
+  amount_1: String!
+  liquidity: String!
+  to: String!
+  block: String!
+  timestamp: String!
+}
+
+type SwapEventEntity @entity {
+  id: ID!         # txHash-logIdx
+  contract: String!
+  token_0: String
+  token_1: String
+  amount_0: String
+  amount_1: String
+  sell_token: String!
+  buy_token: String!
+  sell_amount: String!
+  buy_amount: String!
+  order_token: String!
+  order_amount: String!
+  reserve_before0: String!
+  reserve_before1: String!
+  reserve_after0: String!
+  reserve_after1: String!
+  sender: String!
+  block: String!
+  timestamp: String!
+}
+
+type SyncEventEntity @entity {
+  id: ID!
+  contract: String!
+  token_0: String
+  token_1: String
+  amount_0: String!
+  amount_1: String!
+  txHash: String!
+  block: String!  @index
+  timestamp: String!
+}
+
+type NewPairEventEntity @entity {
+  id: ID!               # txHash-logIdx
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!  @index
+  new_pairs_length: String!
+  creator: String!
+  fees: String!
+  initial_0: String
+  initial_1: String
+  block: String! @index
+  timestamp: String!
+}
+
+###############################################################################
+
+type NewPairPhoenixEntity @entity {
+  id: ID!
+  contract: String
+  token_0: String
+  token_1: String
+  pair: String @index
+  fees: String
+  initial_0: String
+  initial_1: String
+  creator: String
+  staking_contract: String
+  block: String!
+  timestamp: String!
+}
+
+type AddLiquidityPhoenixEntity @entity {
+  id: ID!           
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!
+  amount_0: String!
+  amount_1: String!
+  liquidity: String!
+  sender: String!
+  block: String!
+  timestamp: String!
+}
+
+type RemoveLiquidityPhoenixEntity @entity {
+  id: ID!           
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!
+  amount_0: String!
+  amount_1: String!
+  liquidity: String!
+  sender: String!
+  block: String!
+  timestamp: String!
+}
+
+type SwapPhoenixEntity @entity {
+  id: ID!         # txHash-logIdx
+  contract: String!
+  token_0: String!
+  token_1: String!
+  amount_0: String
+  amount_1: String
+  sell_token: String!
+  buy_token: String!
+  sell_amount: String!
+  buy_amount: String!
+  order_token: String!
+  order_amount: String!
+  reserve_before0: String!
+  reserve_before1: String!
+  reserve_after0: String!
+  reserve_after1: String!
+  spread_amount: String!
+  referral_fee: String!
+  sender: String!
+  block: String!
+  timestamp: String!
+}
+
+
+###############################################################################
+
+type NewPairAquariusEntity @entity {
+  id: ID!
+  contract: String
+  token_0: String
+  token_1: String
+  pair: String @index
+  fees: String
+  initial_0: String
+  initial_1: String
+  creator: String
+  block: String!
+  timestamp: String!
+}
+
+type SwapAquariusEntity @entity {
+  id: ID!         # txHash-logIdx
+  contract: String! @index
+  token_0: String!
+  token_1: String!
+  amount_0: String!
+  amount_1: String!
+  fee: String!
+  sell_token: String!
+  buy_token: String!
+  sell_amount: String!
+  buy_amount: String!
+  order_token: String!
+  order_amount: String!
+  reserve_before0: String!
+  reserve_before1: String!
+  reserve_after0: String!
+  reserve_after1: String!
+  sender: String!
+  txHash: String! @index
+  block: String!
+  timestamp: String!
+}
+
+type ReserveAquariusEntity @entity {
+  id: ID!         # txHash-logIdx
+  contract: String!
+  amount_0: String!
+  amount_1: String!
+  txHash: String!
+  block: String!
+  timestamp: String!
+}
+
+
+type AddLiquidityAquariusEntity @entity {
+  id: ID!           
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!
+  amount_0: String!
+  amount_1: String!
+  liquidity: String!
+  sender: String!
+  block: String!
+  timestamp: String!
+}
+
+type RemoveLiquidityAquariusEntity @entity {
+  id: ID!           
+  contract: String!
+  token_0: String!
+  token_1: String!
+  pair: String!
+  amount_0: String!
+  amount_1: String!
+  liquidity: String!
+  sender: String!
+  block: String!
+  timestamp: String!
+}

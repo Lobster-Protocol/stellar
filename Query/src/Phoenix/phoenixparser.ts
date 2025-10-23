@@ -1,0 +1,719 @@
+import { SorobanEvent } from "@subql/types-stellar";
+
+import { safeDecodeAddress } from "../mappings/mappingHandlers";
+
+import { NewPairPhoenixEntity } from "../types/models/NewPairPhoenixEntity";
+import { AddLiquidityPhoenixEntity } from "../types/models/AddLiquidityPhoenixEntity";
+import { RemoveLiquidityPhoenixEntity } from "../types/models/RemoveLiquidityPhoenixEntity";
+import { SwapPhoenixEntity } from "../types/models/SwapPhoenixEntity";
+
+import { xdr, scValToNative, StrKey } from "@stellar/stellar-base";
+import * as https from 'https';
+import { postToAPI } from "../mappings/mappingHandlers";
+
+function httpsJson(hostname: string, path: string, method: 'GET' | 'POST' = 'GET', headers: any = {}, body?: string): Promise<any> {
+  return new Promise((resolve) => {
+    const req = https.request({ hostname, port: 443, path, method, headers: { 'User-Agent': 'SubQuery/1.0', 'Accept': 'application/json', ...headers } }, res => {
+      let data = ''; res.on('data', c => data += c); res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+    });
+    req.on('error', () => resolve(null));
+    if (body) req.write(body);
+    req.end();
+  });
+}
+const HORIZON = process.env.HORIZON_ENDPOINT || 'https://horizon-testnet.stellar.org';
+
+export async function fetchTxResultMetaB64(txHash: string): Promise<string | null> {
+
+  // 2) Fallback to Horizon
+  try {
+    const r = await fetch(`${HORIZON}/transactions/${txHash}`);
+    if (r.ok) {
+      const j: any = await r.json();
+      const b64 = j?.result_meta_xdr;
+      if (typeof b64 === 'string' && b64.length > 8) return b64;
+    }
+  } catch { }
+
+  return null;
+}
+
+export function parseTransactionMeta(b64: string): xdr.TransactionMeta | null {
+  try {
+    return xdr.TransactionMeta.fromXDR(b64, 'base64');
+  } catch {
+    return null;
+  }
+}
+
+// Phoenix event parser functions
+// Each function extracts a fragment from a Soroban event and persists it into a
+// per-transaction entity. A given transaction can emit multiple event fragments
+// (e.g. token addresses, amounts, sender). We attach them to the same entity id
+// based on the transaction hash.
+// Ensure a NewPairPhoenixEntity exists for the transaction
+async function getOrCreateNewPairEntity(event: SorobanEvent): Promise<NewPairPhoenixEntity> {
+  const id = `${event.transaction?.hash}`;
+  let entity = await NewPairPhoenixEntity.get(id);
+
+  if (!entity) {
+    entity = NewPairPhoenixEntity.create({
+      id,
+      contract: String(event.contractId ?? ""),
+      token_0: "",
+      token_1: "",
+      pair: "",
+      initial_0: "",
+      initial_1: "",
+      fees: "",
+      creator: (event.transaction?.source_account ?? "").toString(),
+      staking_contract: "",
+      block: (event.ledger?.sequence ?? 0).toString(),
+      timestamp: (
+        event.ledgerClosedAt
+          ? Math.floor(new Date(event.ledgerClosedAt).getTime() / 1000)
+          : 0
+      ).toString(),
+    });
+  }
+
+  return entity;
+}
+
+// Parse token A address from pool creation sequence
+export async function NewPairPhoenixTokenAEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const token_a = StrKey.encodeContract(mapEntries);
+
+  logger.info(`TokenA: ${token_a}`);
+
+  const entity = await getOrCreateNewPairEntity(event);
+  entity.token_0 = token_a;
+
+  await entity.save();
+
+}
+
+// Parse token B address from pool creation sequence
+export async function NewPairPhoenixTokenBEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const token_b = StrKey.encodeContract(mapEntries);
+
+  logger.info(`TokenB: ${token_b}`);
+
+  const entity = await getOrCreateNewPairEntity(event);
+  entity.token_1 = token_b;
+
+  await entity.save();
+
+}
+// Parse pair (LP token/contract) address from pool creation sequence
+export async function NewPairPhoenixEvent(event: SorobanEvent): Promise<void> {
+
+  const topics = event.topic
+
+  //logger.info(JSON.stringify(topics, null, 2))
+
+
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const pair = StrKey.encodeContract(mapEntries);
+
+  logger.info(`Pair: ${pair}`);
+
+  const entity = await getOrCreateNewPairEntity(event);
+  entity.pair = pair;
+
+  await entity.save();
+
+  await postToAPI("lobster.phoenix.newpair", {
+    block_number: event.ledger?.sequence,
+    block_timestamp: event.ledgerClosedAt,
+    chain_id: process.env.CHAIN_ID_NUM,
+    content: entity,
+    emitter: String(event.contractId ?? ""),
+    tx: event.transaction?.hash,
+  });
+
+  // const id = event.transaction?.hash ?? "";
+
+  // const tx = event.transaction?.envelope_xdr ?? "";
+
+  // //logger.info(JSON.stringify(tx, null, 2));
+  // const envelope = xdr.TransactionEnvelope.fromXDR(tx, "base64");
+  // //logger.info(JSON.stringify(envelope.v1().tx(), null, 2));
+
+  // const newTX = envelope.v1().tx()
+  // for (const op of newTX.operations()) {
+  //     const body = op.body();
+  //     if (body.switch().name === "invokeHostFunction") {
+  //         const hostFn = body.invokeHostFunctionOp().hostFunction();
+  //         //logger.info(JSON.stringify(hostFn, null, 2))
+
+  //         //logger.info(hostFn.invokeContract().args)
+  //         const args = hostFn.invokeContract().args();
+  //         args.map(a => scValToNative(a));
+  //         //logger.info(JSON.stringify(args[1], null, 2))
+
+  //         logger.info( JSON.stringify(body.invokeHostFunctionOp().hostFunction().invokeContract().args()).substring(0, 10000));
+  //     }
+  // }
+  // //return [];
+  // //const data = envelope.value.
+
+}
+
+// Parse staking contract reference emitted during setup (if present)
+export async function StackingTokenContractPhoenixTokenBEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const stakingContract = StrKey.encodeContract(mapEntries);
+
+  logger.info(`StakingContract: ${stakingContract}`);
+
+  const entity = await getOrCreateNewPairEntity(event);
+  entity.creator = stakingContract;
+
+  await entity.save();
+
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Ensure an AddLiquidityPhoenixEntity exists for the transaction
+async function getOrCreateDepositEntity(event: SorobanEvent): Promise<AddLiquidityPhoenixEntity> {
+  const id = `${event.transaction?.hash}` + event.contractId;
+  let entity = await AddLiquidityPhoenixEntity.get(id);
+
+  if (!entity) {
+    entity = AddLiquidityPhoenixEntity.create({
+      id,
+      contract: String(event.contractId ?? ""),
+      sender: "",
+      token_0: "",
+      token_1: "",
+      pair: "",
+      amount_0: "",
+      amount_1: "",
+      liquidity: "",
+      block: (event.ledger?.sequence ?? 0).toString(),
+      timestamp: (
+        event.ledgerClosedAt
+          ? Math.floor(new Date(event.ledgerClosedAt).getTime() / 1000)
+          : 0
+      ).toString(),
+    });
+  }
+
+  return entity;
+}
+// Parse liquidity provider address
+export async function DepositSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))_value._arm
+
+  let sender = "";
+
+  if (value._value._value._arm == "ed25519") {
+    sender = StrKey.encodeEd25519PublicKey(value._value._value._value);
+  } else {
+    sender = (StrKey.encodeContract(value._value._value._value));
+  }
+
+
+
+  logger.info(`Deposit sender: ${sender}`);
+
+  const entity = await getOrCreateDepositEntity(event);
+  entity.sender = sender;
+
+  await entity.save();
+
+}
+
+// Parse token A address used in liquidity deposit
+export async function DepositTokenAPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const tokena = StrKey.encodeContract(mapEntries);
+
+  logger.info(`Deposit token A: ${tokena}`);
+
+  const entity = await getOrCreateDepositEntity(event);
+  entity.token_0 = tokena;
+
+  await entity.save();
+
+}
+
+// Parse token B address used in liquidity deposit
+export async function DepositTokenBPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const tokenb = StrKey.encodeContract(mapEntries);
+
+  logger.info(`Deposit token B: ${tokenb}`);
+
+  const entity = await getOrCreateDepositEntity(event);
+  entity.token_1 = tokenb;
+
+  await entity.save();
+
+}
+
+// Parse token A amount deposited
+export async function DepositTokenAAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const tokenAAmount = value._value._attributes.lo._value;
+
+  logger.info(`Deposit token A amount: ${tokenAAmount}`);
+
+  const entity = await getOrCreateDepositEntity(event);
+  entity.amount_0 = tokenAAmount.toString();
+
+  await entity.save();
+
+}
+// Parse token B amount deposited
+export async function DepositTokenBAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const tokenBAmount = value._value._attributes.lo._value;
+
+  logger.info(`Deposit token B amount: ${tokenBAmount}`);
+
+  const entity = await getOrCreateDepositEntity(event);
+  entity.amount_1 = tokenBAmount.toString();
+
+  await entity.save();
+
+  await postToAPI("lobster.phoenix.deposit", {
+    block_number: event.ledger?.sequence,
+    block_timestamp: event.ledgerClosedAt,
+    chain_id: process.env.CHAIN_ID_NUM,
+    content: entity,
+    emitter: String(event.contractId ?? ""),
+    tx: event.transaction?.hash,
+  });
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+// Ensure a SwapPhoenixEntity exists for the transaction
+async function getOrCreateSwapEntity(event: SorobanEvent): Promise<SwapPhoenixEntity> {
+  const id = `${event.transaction?.hash}` + event.contractId;
+  let entity = await SwapPhoenixEntity.get(id);
+
+  if (!entity) {
+    entity = SwapPhoenixEntity.create({
+      id,
+      contract: String(event.contractId ?? ""),
+      sender: "",
+      token_0: "",
+      token_1: "",
+      sell_token: "",
+      buy_token: "",
+      sell_amount: "",
+      buy_amount: "",
+      spread_amount: "",
+      referral_fee: "",
+      order_token: "",
+      order_amount: "",
+      reserve_before0: "",
+      reserve_before1: "",
+      reserve_after0: "",
+      reserve_after1: "",
+      block: (event.ledger?.sequence ?? 0).toString(),
+      timestamp: (
+        event.ledgerClosedAt
+          ? Math.floor(new Date(event.ledgerClosedAt).getTime() / 1000)
+          : 0
+      ).toString(),
+    });
+  }
+
+  return entity;
+}
+
+// Parse swap initiator address
+export async function SwapSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+
+  let sender = "";
+
+  if (value._value._value._arm == "ed25519") {
+    sender = StrKey.encodeEd25519PublicKey(value._value._value._value);
+  } else {
+    sender = (StrKey.encodeContract(value._value._value._value));
+  }
+
+  logger.info(`Swap sender: ${sender}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.sender = sender;
+
+  await entity.save();
+}
+// Parse token being sold and compute order_token if both sides are known
+export async function SwapSellTokenPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const token = StrKey.encodeContract(mapEntries);
+  logger.info(`Swap sell token: ${token}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.sell_token = token;
+
+  if (entity.buy_token != "") {
+    entity.order_token = token + "->" + entity.buy_token;
+  }
+
+  await entity.save();
+
+}
+// Parse offered amount (before slippage/fees)
+export async function SwapOfferAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._attributes.lo._value;
+
+  logger.info(`Swap offer amount: ${mapEntries}`);
+
+}
+// Parse actual received amount and derive order_amount if possible
+export async function SwapActualReceivedPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._attributes.lo._value;
+
+  logger.info(`Swap offer amount: ${mapEntries}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.sell_amount = mapEntries.toString();
+
+  if (entity.buy_amount != "") {
+    entity.order_amount = mapEntries.toString() + "->" + entity.buy_amount
+  }
+
+  await entity.save();
+}
+// Parse return amount and derive order_amount if possible
+export async function SwapReturnAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._attributes.lo._value;
+
+  logger.info(`Swap return amount: ${mapEntries}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.buy_amount = mapEntries.toString();
+
+  if (entity.sell_amount != "") {
+    entity.order_amount = entity.sell_amount + "->" + mapEntries.toString();
+  }
+
+  await entity.save();
+
+}
+// Parse spread amount
+export async function SwapSpreadAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  const mapEntries = value._value._attributes.lo._value;
+
+  logger.info(`Swap spread amount: ${mapEntries}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.spread_amount = mapEntries.toString();
+  await entity.save();
+
+}
+
+// Parse token being bought and compute order_token if both sides are known
+export async function SwapBuyTokenPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._value;
+
+  const token = StrKey.encodeContract(mapEntries);
+
+  logger.info(`Swap buy token: ${token}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.buy_token = token;
+
+  if (entity.sell_token != "") {
+    entity.order_token = entity.sell_token + "->" + token;
+  }
+
+  await entity.save();
+
+}
+
+// Parse referral fee amount and send all data to NATS
+export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const mapEntries = value._value._attributes.lo._value;
+
+  logger.info(`Swap referral fee: ${mapEntries}`);
+
+  const entity = await getOrCreateSwapEntity(event);
+  entity.referral_fee = mapEntries.toString();
+
+
+
+  // Test the HTTPS request with proper logging
+  const txHash = event.transaction?.hash ?? '';
+  logger.info(`Starting HTTPS request for tx: ${txHash}`);
+  let r: any;
+
+  try {
+    r = await httpsJson('soroban-testnet.stellar.org', '/', 'POST', { 'Content-Type': 'application/json' }, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTransaction', params: { hash: event.transaction?.hash } }));
+    //logger.info(`metaXDR: ${r?.result?.slice(0,4000) ?? 'none'}`);
+  } catch (error) {
+    logger.error(`HTTPS request failed: ${error}`);
+  }
+
+  const metaXDR: any = xdr.TransactionMeta.fromXDR(r?.result?.resultMetaXdr, 'base64');
+  //logger.info(`meta: ${JSON.stringify(metaXDR._value._attributes.operations, null, 2).slice(0,10000)}`);
+  const operations = metaXDR._value._attributes.operations;
+  const changes = operations[0]._attributes.changes;
+  //logger.info(`operation: ${JSON.stringify(changes, null, 2).slice(0,10000)}`);
+
+  const persistList = [];
+
+  //logger.info(`changes len=${changes?.length ?? 0}`);
+  for (const change of changes ?? []) {
+    //logger.info(`change switch: ${change?._switch?.name ?? 'unknown'}`);
+
+    if (change?._switch?.name === "ledgerEntryUpdated") {
+
+      try {
+
+        const persistAddress = change?._value?._attributes?.data?._value?._attributes?.contract?._value ?? '';
+        const persistToken = (change?._value?._attributes?.data?._value?._attributes?.key?._value ?? '').toString() ?? '';
+        const persistAmount = (change?._value?._attributes?.data?._value?._attributes?.val?._value?._attributes?.lo?._value ?? '').toString() ?? '';
+
+
+        if (persistToken == "1" || persistToken == "2") {
+          // logger.info(`||||||||||||||||||||||||||||||||`);
+          // logger.info(StrKey.encodeContract(persistAddress));
+          // logger.info(`persistToken: ${persistToken ?? 'nil'}`);
+          // logger.info(`persistAmount: ${persistAmount ?? 'nil'}`);
+
+          if (StrKey.encodeContract(persistAddress) == String(event.contractId)) {
+            persistList.push({
+              address: StrKey.encodeContract(persistAddress),
+              token: persistToken,
+              amount: persistAmount
+            });
+          }
+        }
+
+      } catch (e) {
+        logger.info(`extract error: ${String(e).slice(0, 200)}`);
+      }
+    }
+  }
+  persistList.sort((a, b) => a.token.localeCompare(b.token));
+  //logger.info(JSON.stringify(persistList, null, 2));
+
+  //logger.info("//////////////////////////////////////////####################################");
+  const eventsForFees = operations[0]._attributes.events;
+  //logger.info(event.id.split('-').pop());
+  const myInt = Number(event.id.split('-').pop());
+  //logger.info(JSON.stringify(eventsForFees[myInt - 8], null, 2).slice(0,15000));
+
+  const feeAmount = eventsForFees[myInt - 8]._attributes.body._value._attributes.data._value._attributes.lo._value;
+
+  logger.info(`Fee amount: ${feeAmount}`);
+
+  //logger.info(`Contract ID: ${String(event.contractId ?? "")}`);
+  const myPair = await store.getByField("NewPairPhoenixEntity", "pair" as any, String(event.contractId ?? ""), { limit: 1 });
+  //logger.info(JSON.stringify(myPair, null, 2));
+
+  entity.token_0 = (myPair[0] as any).token_0 ?? "";
+  entity.token_1 = (myPair[0] as any).token_1 ?? "";
+
+  entity.reserve_after0 = persistList[0].amount;
+  entity.reserve_after1 = persistList[1].amount;
+
+  if (entity.sell_token == entity.token_0) {
+    entity.reserve_before0 = (Number(entity.reserve_after0) - Number(entity.sell_amount)).toString();
+  } else {
+    entity.reserve_before1 = (Number(entity.reserve_after1) - Number(entity.sell_amount)).toString();
+  }
+
+  if (entity.buy_token == entity.token_0) {
+    entity.reserve_before0 = (Number(entity.reserve_after0) + Number(entity.buy_amount) + Number(feeAmount)).toString();
+  } else {
+    entity.reserve_before1 = (Number(entity.reserve_after1) + Number(entity.buy_amount) + Number(feeAmount)).toString();
+  }
+
+  if (entity.sell_token == entity.token_0) {
+    entity.amount_0 = entity.sell_amount;
+    entity.amount_1 = entity.buy_amount;
+  } else {
+    entity.amount_0 = entity.buy_amount;
+    entity.amount_1 = entity.sell_amount;
+  }
+
+  logger.info(JSON.stringify(entity, null, 2));
+  await entity.save();
+
+  await postToAPI("lobster.phoenix.swap", {
+    block_number: event.ledger?.sequence,
+    block_timestamp: event.ledgerClosedAt,
+    chain_id: process.env.CHAIN_ID_NUM,
+    content: entity,
+    emitter: String(event.contractId ?? ""),
+    tx: event.transaction?.hash,
+  });
+
+}
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////
+
+// Ensure a RemoveLiquidityPhoenixEntity exists for the transaction
+async function getOrCreateWithdrawEntity(event: SorobanEvent): Promise<RemoveLiquidityPhoenixEntity> {
+  const id = `${event.transaction?.hash}` + event.contractId;
+  let entity = await RemoveLiquidityPhoenixEntity.get(id);
+
+  if (!entity) {
+    entity = RemoveLiquidityPhoenixEntity.create({
+      id,
+      contract: String(event.contractId ?? ""),
+      sender: "",
+      token_0: "",
+      token_1: "",
+      pair: "",
+      amount_0: "",
+      amount_1: "",
+      liquidity: "",
+      block: (event.ledger?.sequence ?? 0).toString(),
+      timestamp: (
+        event.ledgerClosedAt
+          ? Math.floor(new Date(event.ledgerClosedAt).getTime() / 1000)
+          : 0
+      ).toString(),
+    });
+  }
+
+  return entity;
+}
+
+// Parse withdraw initiator address
+export async function WithdrawSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+
+  let sender = "";
+
+  if (value._value._value._arm == "ed25519") {
+    sender = StrKey.encodeEd25519PublicKey(value._value._value._value);
+  } else {
+    sender = (StrKey.encodeContract(value._value._value._value));
+  }
+
+  logger.info(`Withdraw sender: ${sender}`);
+
+  const entity = await getOrCreateWithdrawEntity(event);
+  entity.sender = sender;
+
+  await entity.save();
+
+}
+// Parse LP shares burnt during withdrawal
+export async function WithdrawSharesAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const shares = value._value._attributes.lo._value;
+
+  logger.info(`Withdraw shares: ${shares}`);
+
+  const entity = await getOrCreateWithdrawEntity(event);
+  entity.liquidity = shares.toString();
+
+  await entity.save();
+
+}
+// Parse returned amount of token A
+export async function WithdrawReturnAmountAPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const amountA = value._value._attributes.lo._value;
+
+  logger.info(`Withdraw return token A: ${amountA}`);
+
+  const entity = await getOrCreateWithdrawEntity(event);
+  entity.amount_0 = amountA.toString();
+
+  await entity.save();
+
+}
+// Parse returned amount of token B
+export async function WithdrawReturnAmountBPhoenixEvent(event: SorobanEvent): Promise<void> {
+  const value = event.value as any;
+  //logger.info(JSON.stringify(value, null, 2))
+
+  const amountB = value._value._attributes.lo._value;
+
+  logger.info(`Withdraw return token B: ${amountB}`);
+
+  const entity = await getOrCreateWithdrawEntity(event);
+  entity.amount_0 = amountB.toString();
+
+  await entity.save();
+
+  await postToAPI("lobster.phoenix.withdraw", {
+    block_number: event.ledger?.sequence,
+    block_timestamp: event.ledgerClosedAt,
+    chain_id: process.env.CHAIN_ID_NUM,
+    content: entity,
+    emitter: String(event.contractId ?? ""),
+    tx: event.transaction?.hash,
+  });
+
+}

@@ -1,0 +1,71 @@
+[
+    {
+      "id": "0xabc123-0",
+      "contract": "0xAquariusAMM001",
+      "token_0": "0xTokenETH",
+      "token_1": "0xTokenUSDC",
+      "amount_0": "1.0",                // user swapped 1 ETH
+      "amount_1": "-1800.0",            // received 1800 USDC
+      "order_token": "0xTokenETH",      // user provided ETH
+      "order_amount": "1.0",
+      "reserve_before_a": "500.0",      // ETH pool before
+      "reserve_before_b": "900000.0",   // USDC pool before
+      "reserve_after_a": "501.0",       // ETH pool after
+      "reserve_after_b": "898200.0",    // USDC pool after
+      "sender": "0xUserAlice",
+      "block": "18004567",
+      "timestamp": "1694500000"
+    },
+    {
+      "id": "0xdef456-1",
+      "contract": "0xAquariusAMM001",
+      "token_0": "0xTokenETH",
+      "token_1": "0xTokenUSDC",
+      "amount_0": "-0.5",               // user received ETH
+      "amount_1": "950.0",              // user swapped 950 USDC
+      "order_token": "0xTokenUSDC",
+      "order_amount": "950.0",
+      "reserve_before_a": "501.0",
+      "reserve_before_b": "898200.0",
+      "reserve_after_a": "500.5",
+      "reserve_after_b": "899150.0",
+      "sender": "0xUserBob",
+      "block": "18004570",
+      "timestamp": "1694500500"
+    },
+    {
+      "id": "0xghi789-2",
+      "contract": "0xAquariusAMM002",
+      "token_0": "0xTokenDAI",
+      "token_1": "0xTokenUSDT",
+      "amount_0": "1000.0",             // swapped 1000 DAI
+      "amount_1": "-999.0",             // received ~999 USDT
+      "order_token": "0xTokenDAI",
+      "order_amount": "1000.0",
+      "reserve_before_a": "500000.0",
+      "reserve_before_b": "500000.0",
+      "reserve_after_a": "501000.0",
+      "reserve_after_b": "499001.0",
+      "sender": "0xUserCharlie",
+      "block": "18004600",
+      "timestamp": "1694501000"
+    },
+    {
+      "id": "0xjkl012-3",
+      "contract": "0xAquariusAMM003",
+      "token_0": "0xTokenWBTC",
+      "token_1": "0xTokenETH",
+      "amount_0": "-0.01",              // received 0.01 WBTC
+      "amount_1": "0.15",               // swapped 0.15 ETH
+      "order_token": "0xTokenETH",
+      "order_amount": "0.15",
+      "reserve_before_a": "10.0",
+      "reserve_before_b": "150.0",
+      "reserve_after_a": "9.99",
+      "reserve_after_b": "150.15",
+      "sender": "0xUserDana",
+      "block": "18004650",
+      "timestamp": "1694502000"
+    }
+  ]
+  

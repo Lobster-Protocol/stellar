@@ -1,0 +1,137 @@
+version: "3"
+
+
+networks:
+  lobster-net:
+    driver: bridge
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: ./docker/pg-Dockerfile
+    ports:
+      - 5432:5432
+    # volumes:
+    #   - .data/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  subquery-node:
+    image: subquerynetwork/subql-node-stellar:v6.0.3-0
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    depends_on:
+      "postgres":
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    # networks:
+    #   - lobster-net
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_DATABASE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+    volumes:
+      - ./:/app
+    command:
+      - ${SUB_COMMAND:-} # set SUB_COMMAND env variable to "test" to run tests
+      - -f=/app
+      - --unsafe
+      - --db-schema=app
+      - --workers=1 # The more the faster
+      - --batch-size=2 # The higher the faster, set low to avoid rate limit on SDF endpoint
+      - --subscription
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://subquery-node:3000/ready"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  graphql-engine:
+    image: subquerynetwork/subql-query:latest
+    ports:
+      - 3000:3000
+    depends_on:
+      "postgres":
+        condition: service_healthy
+      "subquery-node":
+        condition: service_healthy
+    restart: always
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_DATABASE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+    command:
+      - --name=app
+      - --playground
+      - --indexer=http://subquery-node:3000
+      - --subscription
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats-server:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"  # HTTP monitoring port
+    # networks:
+    #   - lobster-net
+    restart: unless-stopped
+    command: 
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  express-nats-service:
+    build: ./bridge-API
+    ports:
+      - "8080:8080"
+    environment:
+      NATS_URL: nats://nats-server:4222
+      NATS_SUBJECT: events
+    # networks:
+    #   - lobster-net
+    depends_on:
+      - nats-server
+  # nats-service:
+  #   build:
+  #     context: ./nats-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8080:8080"
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - nats-server
+  #     - graphql-engine
+  #   environment:
+  #     NODE_ENV: production
+  #     NATS_URL: nats://nats-server:4222
+  #     SUBQUERY_GRAPHQL_URL: ws://graphql-engine:3000/graphql
+  #   healthcheck:
+  #     test: ["CMD", "node", "-e", "const { connect } = require('nats'); connect({ servers: 'nats://localhost:4222' }).then(nc => { nc.close(); process.exit(0); }).catch(() => process.exit(1));"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+volumes:
+  nats-data:
