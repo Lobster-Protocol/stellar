@@ -113,6 +113,10 @@ async function analyzeSinglePool(
     const clientLobster = new LobsterClient(secret, pool.lobster_address);
     const actualPool = await clientLobster.get_active_protocol();
 
+    if (actualPool == 5) {
+      return null;
+    }
+
     const dataSoroswap = await getDataLast(pool.token0, pool.token1, "soroswap");
     const dataPhoenix = await getDataLast(pool.token0, pool.token1, "phoenix");
     const dataAquarius = await getDataLast(pool.token0, pool.token1, "aquarius");
