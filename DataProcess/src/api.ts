@@ -51,6 +51,7 @@ app.post('/process', (req: any, res: any) => {
         calculatedAt: metrics.calculatedAt,
         token0Address: metrics.token0Address,
         token1Address: metrics.token1Address,
+        pooladdress: metrics.pooladdress,
         last
       });
       console.log('Background processing finished', { token0, token1, protocol: proto });
@@ -129,6 +130,7 @@ app.get('/data/last', async (req: any, res: any) => {
       calculatedAt: metrics.calculatedAt,
       token0Address: metrics.token0Address,
       token1Address: metrics.token1Address,
+      pooladdress: metrics.pooladdress,
       last
     });
   } catch (err: any) {

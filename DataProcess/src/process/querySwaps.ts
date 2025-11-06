@@ -10,6 +10,7 @@ import { uploadJsonGz } from '../utils/bd';
 
 export interface PoolData {
     swapEvents: any[];
+    pooladdress: string;
     token0Address: string;
     token1Address: string;
 }
@@ -120,8 +121,10 @@ export async function queryPoolData(
 
     console.log(`Total swap events fetched: ${allSwapEvents.length}`);
 
+    const pooladdress = allSwapEvents[0].contract;
     return {
         swapEvents: allSwapEvents,
+        pooladdress: pooladdress,
         token0Address,
         token1Address
     };
@@ -408,6 +411,7 @@ export async function calculateAllMetrics(
         calculatedAt: new Date(),
         token0Address: poolData.token0Address,
         token1Address: poolData.token1Address,
+        pooladdress: poolData.pooladdress,
         lists: {
             spotPriceList,
             normalizedTVLList,
