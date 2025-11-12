@@ -19,11 +19,9 @@ app.get('/health', (_req, res) => {
 // Run analysis on all pools
 app.get('/api/run/all', async (req, res) => {
   try {
-    const execute = req.query.execute === 'true' || req.query.execute === '1';
-    const results = await analyzePool({ type: 'all' }, execute);
+    const results = await analyzePool({ type: 'all' });
     res.json({
       success: true,
-      executed: execute,
       count: results.length,
       results
     });
@@ -46,11 +44,9 @@ app.get('/api/run/user/:userAddress', async (req, res) => {
         error: 'User address is required'
       });
     }
-    const execute = req.query.execute === 'true' || req.query.execute === '1';
-    const results = await analyzePool({ type: 'user', userAddress }, execute);
+    const results = await analyzePool({ type: 'user', userAddress });
     res.json({
       success: true,
-      executed: execute,
       userAddress,
       count: results.length,
       results
@@ -74,11 +70,9 @@ app.get('/api/run/pool/:poolId', async (req, res) => {
         error: 'Valid pool ID is required'
       });
     }
-    const execute = req.query.execute === 'true' || req.query.execute === '1';
-    const results = await analyzePool({ type: 'poolId', poolId }, execute);
+    const results = await analyzePool({ type: 'poolId', poolId });
     res.json({
       success: true,
-      executed: execute,
       poolId,
       result: results[0] || null
     });
