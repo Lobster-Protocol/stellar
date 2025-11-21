@@ -9,10 +9,12 @@
     "start": "node dist/index.js",
     "api": "ts-node src/api.ts",
     "test": "jest",
+    "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist",
     "run:swap": "ts-node src/process/test.ts",
-    "pools:poll": "ts-node src/process/poolsPoller.ts"
+    "pools:poll": "ts-node src/process/poolsPoller.ts",
+    "examples": "ts-node src/examples/basicUsage.ts"
   },
   "keywords": [
     "defi",

@@ -114,19 +114,19 @@ export const QUERY_SYNC_EVENT_ENTITIES = `
 `;
 
 export const QUERY_NEW_PAIR_EVENT_ENTITIES = `
-  query ($first: Int, $offset: Int, $orderBy: [NewPairEventEntitiesOrderBy!], $orderDirection: OrderDirection, $filter: NewPairEventEntityFilter) {
-    newPairEventEntities(first: $first, offset: $offset, orderBy: $orderBy, orderDirection: $orderDirection, filter: $filter) {
+  query ($first: Int, $offset: Int, $orderBy: [NewPairEventEntitiesOrderBy!], $filter: NewPairEventEntityFilter) {
+    newPairEventEntities(first: $first, offset: $offset, orderBy: $orderBy, filter: $filter) {
       nodes {
         id
         contract
-        token_0
-        token_1
+        token0
+        token1
         pair
-        new_pairs_length
+        newPairsLength
         creator
         fees
-        initial_0
-        initial_1
+        initial0
+        initial1
         block
         timestamp
       }
@@ -135,19 +135,19 @@ export const QUERY_NEW_PAIR_EVENT_ENTITIES = `
 `;
 
 export const QUERY_NEW_PAIR_PHOENIX_ENTITIES = `
-  query ($first: Int, $offset: Int, $orderBy: [NewPairPhoenixEntitiesOrderBy!], $orderDirection: OrderDirection, $filter: NewPairPhoenixEntityFilter) {
-    newPairPhoenixEntities(first: $first, offset: $offset, orderBy: $orderBy, orderDirection: $orderDirection, filter: $filter) {
+  query ($first: Int, $offset: Int, $orderBy: [NewPairPhoenixEntitiesOrderBy!], $filter: NewPairPhoenixEntityFilter) {
+    newPairPhoenixEntities(first: $first, offset: $offset, orderBy: $orderBy, filter: $filter) {
       nodes {
         id
         contract
-        token_0
-        token_1
+        token0
+        token1
         pair
         fees
-        initial_0
-        initial_1
+        initial0
+        initial1
         creator
-        staking_contract
+        stakingContract
         block
         timestamp
       }
@@ -196,8 +196,8 @@ export const QUERY_REMOVE_LIQUIDITY_PHOENIX_ENTITIES = `
 `;
 
 export const QUERY_SWAP_PHOENIX_ENTITIES = `
-  query ($first: Int, $offset: Int, $orderBy: [SwapPhoenixEntitiesOrderBy!], $orderDirection: OrderDirection, $filter: SwapPhoenixEntityFilter) {
-    swapPhoenixEntities(first: $first, offset: $offset, orderBy: $orderBy, orderDirection: $orderDirection, filter: $filter) {
+  query ($first: Int, $offset: Int, $orderBy: [SwapPhoenixEntitiesOrderBy!], $filter: SwapPhoenixEntityFilter) {
+    swapPhoenixEntities(first: $first, offset: $offset, orderBy: $orderBy, filter: $filter) {
       nodes {
         id
         contract
@@ -218,17 +218,17 @@ export const QUERY_SWAP_PHOENIX_ENTITIES = `
 `;
 
 export const QUERY_NEW_PAIR_AQUARIUS_ENTITIES = `
-  query ($first: Int, $offset: Int, $orderBy: [NewPairAquariusEntitiesOrderBy!], $orderDirection: OrderDirection, $filter: NewPairAquariusEntityFilter) {
-    newPairAquariusEntities(first: $first, offset: $offset, orderBy: $orderBy, orderDirection: $orderDirection, filter: $filter) {
+  query ($first: Int, $offset: Int, $orderBy: [NewPairAquariusEntitiesOrderBy!], $filter: NewPairAquariusEntityFilter) {
+    newPairAquariusEntities(first: $first, offset: $offset, orderBy: $orderBy, filter: $filter) {
       nodes {
         id
         contract
-        token_0
-        token_1
+        token0
+        token1
         pair
         fees
-        initial_0
-        initial_1
+        initial0
+        initial1
         creator
         block
         timestamp
@@ -238,8 +238,8 @@ export const QUERY_NEW_PAIR_AQUARIUS_ENTITIES = `
 `;
 
 export const QUERY_SWAP_AQUARIUS_ENTITIES = `
-  query ($first: Int, $offset: Int, $orderBy: [SwapAquariusEntitiesOrderBy!], $orderDirection: OrderDirection, $filter: SwapAquariusEntityFilter) {
-    swapAquariusEntities(first: $first, offset: $offset, orderBy: $orderBy, orderDirection: $orderDirection, filter: $filter) {
+  query ($first: Int, $offset: Int, $orderBy: [SwapAquariusEntitiesOrderBy!], $filter: SwapAquariusEntityFilter) {
+    swapAquariusEntities(first: $first, offset: $offset, orderBy: $orderBy, filter: $filter) {
       nodes {
         id
         contract
@@ -252,8 +252,9 @@ export const QUERY_SWAP_AQUARIUS_ENTITIES = `
         reserveBefore0
         reserveBefore1
         reserveAfter0
-        reserve_after1
+        reserveAfter1
         sender
+        txHash
         block
         timestamp
       }

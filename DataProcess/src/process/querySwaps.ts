@@ -37,8 +37,21 @@ export async function processPoolData(
         console.log(`Data processing completed for pair: ${token0Address}/${token1Address}`);
 
         return calculatedMetrics;
-    } catch (error) {
-        console.error(`Error processing data for pair ${token0Address}/${token1Address}:`, error);
+    } catch (error: any) {
+        // Check if it's a "no data" error - handle gracefully
+        const errorMessage = error?.message || String(error);
+        if (errorMessage.includes('No swap events found')) {
+            // This is expected for new/inactive pools - just re-throw with clean message
+            throw error;
+        }
+        
+        // For connection errors, provide helpful message
+        if (errorMessage.includes('Cannot connect to SubQuery')) {
+            throw new Error(`SubQuery connection failed. Please ensure SubQuery is running and SUBQUERY_URL is correct.`);
+        }
+        
+        // For other errors, log and re-throw
+        console.error(`Error processing data for pair ${token0Address}/${token1Address}:`, errorMessage);
         throw error;
     }
 }
@@ -73,6 +86,12 @@ export async function queryPoolData(
       query === 'phoenix' ? QUERY_SWAP_PHOENIX_ENTITIES :
       query === 'aquarius' ? QUERY_SWAP_AQUARIUS_ENTITIES : '';
 
+    // Determine the response key based on protocol
+    const responseKey = 
+      query === 'soroswap' ? 'swapEventEntities' :
+      query === 'phoenix' ? 'swapPhoenixEntities' :
+      query === 'aquarius' ? 'swapAquariusEntities' : 'swapEventEntities';
+
     const BATCH_SIZE = 100;
     let offset = 0;
     let allSwapEvents: any[] = [];
@@ -95,15 +114,16 @@ export async function queryPoolData(
                 //orderDirection: "ASC"
             });
 
-            // Check if we got data
-            if (swapEvents?.swapEventEntities?.nodes) {
-                allSwapEvents.push(...swapEvents.swapEventEntities.nodes);
+            // Check if we got data - use the correct response key for each protocol
+            const nodes = swapEvents?.[responseKey]?.nodes;
+            if (nodes && Array.isArray(nodes) && nodes.length > 0) {
+                allSwapEvents.push(...nodes);
 
                 // Check if we got less than batch size (last page)
-                hasMore = swapEvents.swapEventEntities.nodes.length === BATCH_SIZE;
+                hasMore = nodes.length === BATCH_SIZE;
                 offset += BATCH_SIZE;
 
-                console.log(`Fetched ${swapEvents.swapEventEntities.nodes.length} swap events (total: ${allSwapEvents.length})`);
+                console.log(`Fetched ${nodes.length} swap events (total: ${allSwapEvents.length})`);
 
                 // Add delay to avoid rate limiting
                 if (hasMore) {
@@ -113,13 +133,23 @@ export async function queryPoolData(
                 console.log('No swap events found or invalid response structure');
                 hasMore = false;
             }
-        } catch (error) {
-            console.error(`Error fetching swap events at offset ${offset}:`, error);
+        } catch (error: any) {
+            const errorMsg = error?.message || String(error);
+            // Check if it's a connection error
+            if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('fetch failed')) {
+                throw new Error(`Cannot connect to SubQuery endpoint. Please check SUBQUERY_URL (currently: ${process.env.SUBQUERY_URL || 'http://localhost:3000'})`);
+            }
+            console.error(`Error fetching swap events at offset ${offset}:`, errorMsg);
             hasMore = false;
         }
     }
 
     console.log(`Total swap events fetched: ${allSwapEvents.length}`);
+
+    // Check if we have any swap events
+    if (allSwapEvents.length === 0) {
+        throw new Error(`No swap events found for pair ${token0Address.substring(0, 8)}.../${token1Address.substring(0, 8)}... (${query}). The pool may be new or inactive.`);
+    }
 
     const pooladdress = allSwapEvents[0].contract;
     return {

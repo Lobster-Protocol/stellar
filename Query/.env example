@@ -1,0 +1,27 @@
+ENDPOINT=https://horizon.stellar.lobstr.co
+CHAIN_ID_NUM = 2051
+
+NETWORK = testnet  # mainnet
+
+# Stellar Network Configuration
+CHAIN_ID=Test SDF Network ; September 2015
+# Options:
+# - Testnet: "Test SDF Network ; September 2015"
+# - Mainnet: "Public Global Stellar Network ; September 2015"
+# - Future Network: "Test SDF Future Network ; October 2022"
+
+# Horizon Endpoint(s) - comma-separated for multiple endpoints
+HORIZON_ENDPOINT=https://horizon-testnet.stellar.org
+# Mainnet example: https://horizon.stellar.lobstr.co,https://horizon.stellar.org
+
+# Soroban RPC Endpoint
+SOROBAN_ENDPOINT=https://soroban-testnet.stellar.org
+# Mainnet example: https://soroban-rpc.mainnet.stellar.gateway.fm
+
+# Indexing Configuration
+START_BLOCK=1675415
+
+# Aquarius Contract ID
+AQUARIUS_CONTRACT_ID=CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD
+#CBQDHNBFBZYE4MKPWBSJOPIYLW4SFSXAXUTSXJN76GNKYVYPCKWC6QUK   mainnet
+#CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD   testnet

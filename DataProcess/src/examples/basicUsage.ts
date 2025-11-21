@@ -1,253 +1,230 @@
-import { Decimal } from 'decimal.js';
-import { 
-  LobsterCalculator, 
-  createLobsterCalculator,
-  PoolReserves,
-  SwapParams,
-  LiquidityParams,
-  AMMConfig,
-  CurveParams,
-  FeeTier
-} from '../index';
-
-const ONE = new Decimal(1);
-
 /**
  * Basic usage examples for Lobster Protocol Analytical Formulas
+ * 
+ * These examples demonstrate how to use the AMMFormulas class to calculate
+ * various metrics for AMM pools.
  */
 
-// Example 1: Basic AMM swap calculation
-export function basicAMMSwapExample(): void {
-  console.log('=== Basic AMM Swap Example ===');
+import { Decimal } from 'decimal.js';
+import { AMMFormulas } from '../formulas/amm';
+
+/**
+ * Example 1: Calculate spot price
+ */
+export function spotPriceExample(): void {
+  console.log('=== Spot Price Example ===');
   
-  // Create calculator with default config
-  const calculator = createLobsterCalculator();
-  const ammFormulas = calculator.getAMMFormulas();
+  const formulas = new AMMFormulas();
   
-  // Define pool reserves (USDC/USDT pool)
-  const reserves: PoolReserves = {
-    reserveA: new Decimal(1000000), // 1M USDC
-    reserveB: new Decimal(1000000), // 1M USDT
-    totalSupply: new Decimal(1000000), // 1M LP tokens
-  };
+  // Pool with 1M USDC and 1M USDT
+  const reserveToken0 = new Decimal(1000000);
+  const reserveToken1 = new Decimal(1000000);
   
-  // Define swap parameters
-  const swapParams: SwapParams = {
-    amountIn: new Decimal(1000), // 1000 USDC
-    tokenIn: 'A',
-    tokenOut: 'B',
-    slippageTolerance: new Decimal(0.5), // 0.5% slippage
-  };
-  
-  try {
-    // Calculate swap output
-    const result = ammFormulas.calculateSwapOutput(reserves, swapParams);
-    
-    console.log(`Input: ${swapParams.amountIn} USDC`);
-    console.log(`Output: ${result.amountOut} USDT`);
-    console.log(`Price Impact: ${result.priceImpact.mul(100)}%`);
-    console.log(`Effective Price: ${result.effectivePrice} USDT/USDC`);
-    console.log(`Fee: ${result.fee} USDC`);
-  } catch (error) {
-    console.error('Error calculating swap:', error);
-  }
+  const spotPrice = formulas.calculateSpotPrice(reserveToken0, reserveToken1);
+  console.log(`Spot Price: ${spotPrice.toString()} USDT/USDC`);
+  // Output: Spot Price: 1 USDT/USDC
 }
 
-// Example 2: Liquidity provision
-export function liquidityProvisionExample(): void {
-  console.log('\n=== Liquidity Provision Example ===');
+/**
+ * Example 2: Calculate normalized TVL
+ */
+export function normalizedTVLExample(): void {
+  console.log('\n=== Normalized TVL Example ===');
   
-  const calculator = createLobsterCalculator();
-  const ammFormulas = calculator.getAMMFormulas();
+  const formulas = new AMMFormulas();
   
-  const reserves: PoolReserves = {
-    reserveA: new Decimal(500000), // 500K USDC
-    reserveB: new Decimal(500000), // 500K USDT
-    totalSupply: new Decimal(500000), // 500K LP tokens
-  };
+  const reserveToken0 = new Decimal(1000000);
+  const reserveToken1 = new Decimal(1000000);
   
-  const liquidityParams: LiquidityParams = {
-    amountA: new Decimal(10000), // 10K USDC
-    amountB: new Decimal(10000), // 10K USDT
-  };
-  
-  try {
-    const result = ammFormulas.calculateLiquidity(reserves, liquidityParams);
-    
-    console.log(`Adding: ${liquidityParams.amountA} USDC + ${liquidityParams.amountB} USDT`);
-    console.log(`Liquidity: ${result.liquidity}`);
-    console.log(`Share: ${result.share.mul(100)}%`);
-    console.log(`Price Ratio: ${result.priceRatio} USDT/USDC`);
-  } catch (error) {
-    console.error('Error calculating liquidity:', error);
-  }
+  const normalizedTVL = formulas.getNormalizedTVL(reserveToken0, reserveToken1);
+  console.log(`Normalized TVL: ${normalizedTVL.toString()}`);
+  // Output: Normalized TVL: 2000000
 }
 
-// Example 3: Stable swap calculation
-export function stableSwapExample(): void {
-  console.log('\n=== Stable Swap Example ===');
+/**
+ * Example 3: Calculate average price during a swap
+ */
+export function averagePriceExample(): void {
+  console.log('\n=== Average Price Example ===');
   
-  const curveParams: CurveParams = {
-    amplification: new Decimal(100),
-    gamma: new Decimal(0.000145),
-    alpha: new Decimal(0.4),
-  };
+  const formulas = new AMMFormulas();
   
-  const calculator = createLobsterCalculator(
-    undefined, // Use default AMM config
-    curveParams,
-    undefined // Use default fee tier
+  const previousPrice = new Decimal(1.0);
+  const currentPrice = new Decimal(1.1);
+  
+  const averagePrice = formulas.calculateAveragePrice(currentPrice, previousPrice);
+  console.log(`Previous Price: ${previousPrice.toString()}`);
+  console.log(`Current Price: ${currentPrice.toString()}`);
+  console.log(`Average Price: ${averagePrice.toString()}`);
+  // Output: Average Price: ~1.0488 (geometric mean)
+}
+
+/**
+ * Example 4: Calculate normalized volume
+ */
+export function normalizedVolumeExample(): void {
+  console.log('\n=== Normalized Volume Example ===');
+  
+  const formulas = new AMMFormulas();
+  
+  const amountToken0 = new Decimal(1000);
+  const amountToken1 = new Decimal(-1100);
+  const averagePrice = new Decimal(1.1);
+  
+  const normalizedVolume = formulas.calculateNormalizedVolume(
+    amountToken0,
+    amountToken1,
+    averagePrice
   );
-  
-  const stableFormulas = calculator.getStableSwapFormulas();
-  
-  const reserves: PoolReserves = {
-    reserveA: new Decimal(2000000), // 2M USDC
-    reserveB: new Decimal(2000000), // 2M USDT
-    totalSupply: new Decimal(2000000),
-  };
-  
-  const swapParams: SwapParams = {
-    amountIn: new Decimal(50000), // 50K USDC
-    tokenIn: 'A',
-    tokenOut: 'B',
-  };
-  
-  try {
-    const result = stableFormulas.calculateSwapOutput(reserves, swapParams);
-    
-    console.log(`Input: ${swapParams.amountIn} USDC`);
-    console.log(`Output: ${result.amountOut} USDT`);
-    console.log(`Price Impact: ${result.priceImpact.mul(100)}%`);
-    console.log(`Effective Price: ${result.effectivePrice} USDT/USDC`);
-  } catch (error) {
-    console.error('Error calculating stable swap:', error);
-  }
+  console.log(`Normalized Volume: ${normalizedVolume.toString()}`);
 }
 
-// Example 4: Price impact analysis
-export function priceImpactAnalysisExample(): void {
-  console.log('\n=== Price Impact Analysis Example ===');
+/**
+ * Example 5: Calculate captured fees
+ */
+export function capturedFeesExample(): void {
+  console.log('\n=== Captured Fees Example ===');
   
-  const calculator = createLobsterCalculator();
-  const ammFormulas = calculator.getAMMFormulas();
+  const formulas = new AMMFormulas();
   
-  const reserves: PoolReserves = {
-    reserveA: new Decimal(1000000),
-    reserveB: new Decimal(1000000),
-    totalSupply: new Decimal(1000000),
-  };
+  const amountToken0 = new Decimal(1000);
+  const amountToken1 = new Decimal(-1100);
+  const averagePrice = new Decimal(1.1);
   
-  const tradeSizes = [
-    new Decimal(1000),    // 0.1%
-    new Decimal(10000),   // 1%
-    new Decimal(50000),   // 5%
-    new Decimal(100000),  // 10%
+  const capturedFees = formulas.calculateCapturedFees(
+    amountToken0,
+    amountToken1,
+    averagePrice
+  );
+  console.log(`Captured Fees: ${capturedFees.toString()}`);
+}
+
+/**
+ * Example 6: Calculate profit from fees
+ */
+export function profitExample(): void {
+  console.log('\n=== Profit Example ===');
+  
+  const formulas = new AMMFormulas();
+  
+  const feeCapturedSeries = [
+    new Decimal(10),
+    new Decimal(20),
+    new Decimal(15)
+  ];
+  const normalizedTVLSeries = [
+    new Decimal(1000000),
+    new Decimal(1000000),
+    new Decimal(1000000)
   ];
   
-  console.log('Trade Size | Price Impact | Effective Price');
-  console.log('-----------|--------------|----------------');
-  
-  tradeSizes.forEach(size => {
-    try {
-      const impact = ammFormulas.calculatePriceImpact(reserves, size, 'A');
-      const spotPrice = ammFormulas.calculateSpotPrice(reserves);
-      const effectivePrice = spotPrice.mul(ONE.sub(impact));
-      
-      console.log(`${size.toString().padStart(10)} | ${impact.mul(100).toFixed(4).padStart(12)}% | ${effectivePrice.toFixed(6).padStart(14)}`);
-    } catch (error) {
-      console.log(`${size.toString().padStart(10)} | Error: ${error.message}`);
-    }
-  });
+  const profit = formulas.calculateProfit(feeCapturedSeries, normalizedTVLSeries);
+  console.log(`Cumulative Profit: ${profit.toString()}`);
+  // Output: Cumulative Profit: 0.000045 (0.0045%)
 }
 
-// Example 5: Impermanent loss calculation
+/**
+ * Example 7: Calculate impermanent loss
+ */
 export function impermanentLossExample(): void {
   console.log('\n=== Impermanent Loss Example ===');
   
-  const calculator = createLobsterCalculator();
-  const ammFormulas = calculator.getAMMFormulas();
+  const formulas = new AMMFormulas();
   
-  const initialPrice = new Decimal(1.0); // 1 USDT per USDC
-  const priceChanges = [
-    new Decimal(0.5),   // -50%
-    new Decimal(0.8),   // -20%
-    new Decimal(1.0),   // 0%
-    new Decimal(1.2),   // +20%
-    new Decimal(1.5),   // +50%
-    new Decimal(2.0),   // +100%
+  const initialPrice = new Decimal(1.0);
+  const currentPrice = new Decimal(2.0);
+  
+  const percentLoss = formulas.calculatePercentLossBalanced(initialPrice, currentPrice);
+  console.log(`Initial Price: ${initialPrice.toString()}`);
+  console.log(`Current Price: ${currentPrice.toString()}`);
+  console.log(`Percent Loss: ${percentLoss.mul(100).toString()}%`);
+  // Output: Percent Loss: ~5.72% (for 2x price change)
+}
+
+/**
+ * Example 8: Calculate PnL (Profit and Loss)
+ */
+export function pnlExample(): void {
+  console.log('\n=== PnL Example ===');
+  
+  const formulas = new AMMFormulas();
+  
+  const cumulativeProfit = new Decimal(0.1); // 10% profit from fees
+  const percentLoss = new Decimal(0.05); // 5% impermanent loss
+  
+  const pnl = formulas.calculatePnL(cumulativeProfit, percentLoss);
+  console.log(`Cumulative Profit: ${cumulativeProfit.mul(100).toString()}%`);
+  console.log(`Percent Loss: ${percentLoss.mul(100).toString()}%`);
+  console.log(`Net PnL: ${pnl.mul(100).toString()}%`);
+  // Output: Net PnL: ~4.5% (after accounting for impermanent loss)
+}
+
+/**
+ * Example 9: Calculate APR
+ */
+export function aprExample(): void {
+  console.log('\n=== APR Example ===');
+  
+  const formulas = new AMMFormulas();
+  
+  const pnl = new Decimal(0.05); // 5% PnL over the period
+  const annualizationFactor = new Decimal(12); // Monthly periods (12 per year)
+  
+  const apr = formulas.calculateAPR(pnl, annualizationFactor);
+  console.log(`Period PnL: ${pnl.mul(100).toString()}%`);
+  console.log(`Annualization Factor: ${annualizationFactor.toString()}`);
+  console.log(`APR: ${apr.mul(100).toString()}%`);
+  // Output: APR: 60%
+}
+
+/**
+ * Example 10: Calculate volatility metrics
+ */
+export function volatilityExample(): void {
+  console.log('\n=== Volatility Example ===');
+  
+  const formulas = new AMMFormulas();
+  
+  const prices = [
+    new Decimal(1.0),
+    new Decimal(1.1),
+    new Decimal(0.95),
+    new Decimal(1.05),
+    new Decimal(1.2)
   ];
   
-  console.log('Price Change | Impermanent Loss');
-  console.log('-------------|-----------------');
+  const volatilities: Decimal[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    const vol = formulas.calculateInstantaneousVolatility(prices[i], prices[i - 1]);
+    volatilities.push(vol);
+  }
   
-  priceChanges.forEach(price => {
-    try {
-      const il = ammFormulas.calculateImpermanentLoss(initialPrice, price);
-      const priceChangePercent = price.sub(initialPrice).div(initialPrice).mul(100);
-      
-      console.log(`${priceChangePercent.toFixed(1).padStart(11)}% | ${il.mul(100).toFixed(4).padStart(15)}%`);
-    } catch (error) {
-      console.log(`Error: ${error.message}`);
-    }
-  });
+  const avgVolatility = formulas.calculateAverageVolatility(
+    volatilities,
+    new Decimal(volatilities.length)
+  );
+  
+  console.log(`Average Volatility: ${avgVolatility.toString()}`);
 }
 
-// Example 6: Custom configuration
-export function customConfigurationExample(): void {
-  console.log('\n=== Custom Configuration Example ===');
-  
-  const customAMMConfig: AMMConfig = {
-    feeRate: new Decimal(50), // 0.5% fee
-    protocolFeeRate: new Decimal(10), // 0.1% protocol fee
-    maxSlippage: new Decimal(2), // 2% max slippage
-    minLiquidity: new Decimal(5000),
-  };
-  
-  const customCurveParams: CurveParams = {
-    amplification: new Decimal(200),
-    gamma: new Decimal(0.0001),
-    alpha: new Decimal(0.5),
-  };
-  
-  const customFeeTier: FeeTier = {
-    fee: new Decimal(5000), // 0.5% fee
-    tickSpacing: 10,
-  };
-  
-  const calculator = new LobsterCalculator(customAMMConfig, customCurveParams, customFeeTier);
-  
-  console.log('Custom AMM Config:');
-  console.log(`  Fee Rate: ${customAMMConfig.feeRate.div(100)}%`);
-  console.log(`  Protocol Fee Rate: ${customAMMConfig.protocolFeeRate.div(100)}%`);
-  console.log(`  Max Slippage: ${customAMMConfig.maxSlippage}%`);
-  
-  console.log('\nCustom Curve Params:');
-  console.log(`  Amplification: ${customCurveParams.amplification}`);
-  console.log(`  Gamma: ${customCurveParams.gamma}`);
-  console.log(`  Alpha: ${customCurveParams.alpha}`);
-  
-  console.log('\nCustom Fee Tier:');
-  console.log(`  Fee: ${customFeeTier.fee.div(100)}%`);
-  console.log(`  Tick Spacing: ${customFeeTier.tickSpacing}`);
-}
-
-// Run all examples
+/**
+ * Run all examples
+ */
 export function runAllExamples(): void {
-  basicAMMSwapExample();
-  liquidityProvisionExample();
-  stableSwapExample();
-  priceImpactAnalysisExample();
+  spotPriceExample();
+  normalizedTVLExample();
+  averagePriceExample();
+  normalizedVolumeExample();
+  capturedFeesExample();
+  profitExample();
   impermanentLossExample();
-  customConfigurationExample();
+  pnlExample();
+  aprExample();
+  volatilityExample();
 }
 
-// Export for use in other files
-export {
-  basicAMMSwapExample,
-  liquidityProvisionExample,
-  stableSwapExample,
-  priceImpactAnalysisExample,
-  impermanentLossExample,
-  customConfigurationExample,
-};
+// If run directly
+if (require.main === module) {
+  runAllExamples();
+}
+

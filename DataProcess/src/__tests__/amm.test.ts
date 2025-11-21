@@ -1,266 +1,342 @@
 import { Decimal } from 'decimal.js';
-import { AMMFormulas, AMMConfig, PoolReserves, SwapParams, LiquidityParams } from '../index';
+import { AMMFormulas } from '../formulas/amm';
+import { ZERO, ONE } from '../constants';
 
 describe('AMMFormulas', () => {
   let ammFormulas: AMMFormulas;
-  let config: AMMConfig;
-  let reserves: PoolReserves;
 
   beforeEach(() => {
-    config = {
-      feeRate: new Decimal(30), // 0.3%
-      protocolFeeRate: new Decimal(5), // 0.05%
-      maxSlippage: new Decimal(5), // 5%
-      minLiquidity: new Decimal(1000),
-    };
-    
-    ammFormulas = new AMMFormulas(config);
-    
-    reserves = {
-      reserveA: new Decimal(1000000), // 1M USDC
-      reserveB: new Decimal(1000000), // 1M USDT
-      totalSupply: new Decimal(1000000), // 1M LP tokens
-    };
-  });
-
-  describe('calculateSwapOutput', () => {
-    it('should calculate correct output for small swap', () => {
-      const swapParams: SwapParams = {
-        amountIn: new Decimal(1000), // 1000 USDC
-        tokenIn: 'A',
-        tokenOut: 'B',
-      };
-
-      const result = ammFormulas.calculateSwapOutput(reserves, swapParams);
-      
-      expect(result.amountOut).toBeDefined();
-      expect(result.amountOut.gt(0)).toBe(true);
-      expect(result.priceImpact).toBeDefined();
-      expect(result.effectivePrice).toBeDefined();
-      expect(result.fee).toBeDefined();
-    });
-
-    it('should throw error for zero amount', () => {
-      const swapParams: SwapParams = {
-        amountIn: new Decimal(0),
-        tokenIn: 'A',
-        tokenOut: 'B',
-      };
-
-      expect(() => {
-        ammFormulas.calculateSwapOutput(reserves, swapParams);
-      }).toThrow('Amount in must be positive');
-    });
-
-    it('should throw error for negative amount', () => {
-      const swapParams: SwapParams = {
-        amountIn: new Decimal(-1000),
-        tokenIn: 'A',
-        tokenOut: 'B',
-      };
-
-      expect(() => {
-        ammFormulas.calculateSwapOutput(reserves, swapParams);
-      }).toThrow('Amount in must be positive');
-    });
-
-    it('should throw error for insufficient reserves', () => {
-      const emptyReserves: PoolReserves = {
-        reserveA: new Decimal(0),
-        reserveB: new Decimal(0),
-        totalSupply: new Decimal(0),
-      };
-
-      const swapParams: SwapParams = {
-        amountIn: new Decimal(1000),
-        tokenIn: 'A',
-        tokenOut: 'B',
-      };
-
-      expect(() => {
-        ammFormulas.calculateSwapOutput(emptyReserves, swapParams);
-      }).toThrow('Insufficient reserves');
-    });
-  });
-
-  describe('calculateSwapInput', () => {
-    it('should calculate correct input for desired output', () => {
-      const amountOut = new Decimal(1000);
-      const result = ammFormulas.calculateSwapInput(reserves, amountOut, 'A', 'B');
-      
-      expect(result).toBeDefined();
-      expect(result.gt(0)).toBe(true);
-    });
-
-    it('should throw error for zero output', () => {
-      expect(() => {
-        ammFormulas.calculateSwapInput(reserves, new Decimal(0), 'A', 'B');
-      }).toThrow('Amount out must be positive');
-    });
-
-    it('should throw error for insufficient liquidity', () => {
-      const amountOut = new Decimal(2000000); // More than available
-      
-      expect(() => {
-        ammFormulas.calculateSwapInput(reserves, amountOut, 'A', 'B');
-      }).toThrow('Insufficient liquidity');
-    });
-  });
-
-  describe('calculateLiquidity', () => {
-    it('should calculate correct liquidity for initial provision', () => {
-      const emptyReserves: PoolReserves = {
-        reserveA: new Decimal(0),
-        reserveB: new Decimal(0),
-        totalSupply: new Decimal(0),
-      };
-
-      const liquidityParams: LiquidityParams = {
-        amountA: new Decimal(10000),
-        amountB: new Decimal(10000),
-      };
-
-      const result = ammFormulas.calculateLiquidity(emptyReserves, liquidityParams);
-      
-      expect(result.liquidity).toBeDefined();
-      expect(result.liquidity.gt(0)).toBe(true);
-      expect(result.share).toBeDefined();
-      expect(result.priceRatio).toBeDefined();
-    });
-
-    it('should calculate correct liquidity for additional provision', () => {
-      const liquidityParams: LiquidityParams = {
-        amountA: new Decimal(10000),
-        amountB: new Decimal(10000),
-      };
-
-      const result = ammFormulas.calculateLiquidity(reserves, liquidityParams);
-      
-      expect(result.liquidity).toBeDefined();
-      expect(result.liquidity.gt(0)).toBe(true);
-      expect(result.share).toBeDefined();
-      expect(result.share.lt(1)).toBe(true); // Should be less than 100%
-    });
-
-    it('should throw error for zero amounts', () => {
-      const liquidityParams: LiquidityParams = {
-        amountA: new Decimal(0),
-        amountB: new Decimal(10000),
-      };
-
-      expect(() => {
-        ammFormulas.calculateLiquidity(reserves, liquidityParams);
-      }).toThrow('Amounts must be positive');
-    });
-  });
-
-  describe('calculateLiquidityWithdrawal', () => {
-    it('should calculate correct withdrawal amounts', () => {
-      const liquidity = new Decimal(100000);
-      const result = ammFormulas.calculateLiquidityWithdrawal(reserves, liquidity);
-      
-      expect(result.amountA).toBeDefined();
-      expect(result.amountB).toBeDefined();
-      expect(result.amountA.gt(0)).toBe(true);
-      expect(result.amountB.gt(0)).toBe(true);
-    });
-
-    it('should throw error for excessive liquidity', () => {
-      const excessiveLiquidity = new Decimal(2000000);
-      
-      expect(() => {
-        ammFormulas.calculateLiquidityWithdrawal(reserves, excessiveLiquidity);
-      }).toThrow('Insufficient liquidity');
-    });
+    ammFormulas = new AMMFormulas();
   });
 
   describe('calculateSpotPrice', () => {
-    it('should calculate correct spot price', () => {
-      const price = ammFormulas.calculateSpotPrice(reserves);
-      
-      expect(price).toBeDefined();
-      expect(price.gt(0)).toBe(true);
-      expect(price.eq(1)).toBe(true); // Should be 1 for equal reserves
+    it('should calculate correct spot price for equal reserves', () => {
+      const price = ammFormulas.calculateSpotPrice(
+        new Decimal(1000000),
+        new Decimal(1000000)
+      );
+      expect(price.eq(ONE)).toBe(true);
     });
 
-    it('should throw error for invalid reserves', () => {
-      const invalidReserves: PoolReserves = {
-        reserveA: new Decimal(0),
-        reserveB: new Decimal(1000000),
-        totalSupply: new Decimal(1000000),
-      };
+    it('should calculate correct spot price for different reserves', () => {
+      const price = ammFormulas.calculateSpotPrice(
+        new Decimal(1000000),
+        new Decimal(2000000)
+      );
+      expect(price.eq(2)).toBe(true);
+    });
 
+    it('should throw error for zero reserveToken0', () => {
       expect(() => {
-        ammFormulas.calculateSpotPrice(invalidReserves);
-      }).toThrow('Invalid reserves');
+        ammFormulas.calculateSpotPrice(ZERO, new Decimal(1000000));
+      }).toThrow('Invalid reserves reserveToken0');
     });
   });
 
-  describe('calculatePriceImpact', () => {
-    it('should calculate correct price impact', () => {
-      const amountIn = new Decimal(10000);
-      const impact = ammFormulas.calculatePriceImpact(reserves, amountIn, 'A');
-      
-      expect(impact).toBeDefined();
-      expect(impact.gte(0)).toBe(true);
+  describe('getNormalizedTVL', () => {
+    it('should calculate normalized TVL correctly', () => {
+      const tvl = ammFormulas.getNormalizedTVL(
+        new Decimal(1000000),
+        new Decimal(1000000)
+      );
+      expect(tvl.gt(ZERO)).toBe(true);
+      expect(tvl.eq(new Decimal(2000000))).toBe(true);
     });
 
-    it('should have higher impact for larger trades', () => {
-      const smallAmount = new Decimal(1000);
-      const largeAmount = new Decimal(100000);
-      
-      const smallImpact = ammFormulas.calculatePriceImpact(reserves, smallAmount, 'A');
-      const largeImpact = ammFormulas.calculatePriceImpact(reserves, largeAmount, 'A');
-      
-      expect(largeImpact.gt(smallImpact)).toBe(true);
+    it('should throw error for zero reserveToken1', () => {
+      expect(() => {
+        ammFormulas.getNormalizedTVL(new Decimal(1000000), ZERO);
+      }).toThrow('reserveToken1 cannot be zero');
     });
   });
 
-  describe('calculateImpermanentLoss', () => {
+  describe('getGlobalToken0Exposure', () => {
+    it('should calculate correct exposure for balanced pool', () => {
+      const exposure = ammFormulas.getGlobalToken0Exposure(
+        new Decimal(1000000),
+        new Decimal(1000000)
+      );
+      expect(exposure.eq(new Decimal(0.5))).toBe(true);
+    });
+
+    it('should calculate exposure correctly for different ratios', () => {
+      // For balanced pool (1M:1M), exposure should be 0.5
+      const exposure1 = ammFormulas.getGlobalToken0Exposure(
+        new Decimal(1000000),
+        new Decimal(1000000)
+      );
+      expect(exposure1.eq(new Decimal(0.5))).toBe(true);
+      
+      // For 2M:1M pool, price = 2M/1M = 2, normalizedTVL = 2M + 2*1M = 4M
+      // Exposure = 2M/4M = 0.5 (the formula normalizes by price)
+      const exposure2 = ammFormulas.getGlobalToken0Exposure(
+        new Decimal(2000000),
+        new Decimal(1000000)
+      );
+      expect(exposure2.eq(new Decimal(0.5))).toBe(true);
+    });
+  });
+
+  describe('calculateAveragePrice', () => {
+    it('should calculate geometric mean correctly', () => {
+      const avgPrice = ammFormulas.calculateAveragePrice(
+        new Decimal(2),
+        new Decimal(8)
+      );
+      // √(2 * 8) = √16 = 4
+      expect(avgPrice.eq(4)).toBe(true);
+    });
+
+    it('should throw error for zero prices', () => {
+      expect(() => {
+        ammFormulas.calculateAveragePrice(ZERO, new Decimal(2));
+      }).toThrow('Prices must be positive');
+    });
+  });
+
+  describe('calculateNormalizedVolume', () => {
+    it('should calculate normalized volume correctly', () => {
+      const volume = ammFormulas.calculateNormalizedVolume(
+        new Decimal(1000),
+        new Decimal(2000),
+        new Decimal(2)
+      );
+      expect(volume.gt(ZERO)).toBe(true);
+    });
+
+    it('should throw error for zero average price', () => {
+      expect(() => {
+        ammFormulas.calculateNormalizedVolume(
+          new Decimal(1000),
+          new Decimal(2000),
+          ZERO
+        );
+      }).toThrow('Average price cannot be zero');
+    });
+  });
+
+  describe('calculateCapturedFees', () => {
+    it('should calculate captured fees correctly', () => {
+      const fees = ammFormulas.calculateCapturedFees(
+        new Decimal(1000),
+        new Decimal(2000),
+        new Decimal(2)
+      );
+      expect(fees.gte(ZERO)).toBe(true);
+    });
+  });
+
+  describe('calculatePoolFeeRate', () => {
+    it('should calculate fee rate correctly', () => {
+      const feeRate = ammFormulas.calculatePoolFeeRate(
+        new Decimal(10),
+        new Decimal(1000)
+      );
+      expect(feeRate.eq(new Decimal(0.01))).toBe(true);
+    });
+
+    it('should throw error for zero volume', () => {
+      expect(() => {
+        ammFormulas.calculatePoolFeeRate(new Decimal(10), ZERO);
+      }).toThrow('Normalized volume cannot be zero');
+    });
+  });
+
+  describe('calculateTurnoverFactor', () => {
+    it('should calculate turnover factor correctly', () => {
+      const volumes = [
+        new Decimal(1000),
+        new Decimal(2000),
+        new Decimal(1500)
+      ];
+      const tvl = new Decimal(10000);
+      const factor = ammFormulas.calculateTurnoverFactor(
+        volumes,
+        new Decimal(3),
+        tvl
+      );
+      expect(factor.gt(ZERO)).toBe(true);
+    });
+
+    it('should throw error for mismatched window size', () => {
+      expect(() => {
+        ammFormulas.calculateTurnoverFactor(
+          [new Decimal(1000)],
+          new Decimal(2),
+          new Decimal(10000)
+        );
+      }).toThrow('normalizedVolumesWindow length must equal s');
+    });
+  });
+
+  describe('calculateProfit', () => {
+    it('should calculate cumulative profit correctly', () => {
+      const fees = [new Decimal(10), new Decimal(20), new Decimal(15)];
+      const tvls = [new Decimal(1000), new Decimal(1000), new Decimal(1000)];
+      const profit = ammFormulas.calculateProfit(fees, tvls);
+      expect(profit.gt(ZERO)).toBe(true);
+      // Should be (10/1000 + 20/1000 + 15/1000) = 0.045
+      expect(profit.eq(new Decimal(0.045))).toBe(true);
+    });
+
+    it('should throw error for empty series', () => {
+      expect(() => {
+        ammFormulas.calculateProfit([], []);
+      }).toThrow('Input series cannot be empty');
+    });
+
+    it('should throw error for mismatched lengths', () => {
+      expect(() => {
+        ammFormulas.calculateProfit(
+          [new Decimal(10)],
+          [new Decimal(1000), new Decimal(1000)]
+        );
+      }).toThrow('Input series must have the same length');
+    });
+  });
+
+  describe('calculatePercentLossBalanced', () => {
     it('should calculate zero loss for same price', () => {
-      const price = new Decimal(1.0);
-      const loss = ammFormulas.calculateImpermanentLoss(price, price);
-      
-      expect(loss.eq(0)).toBe(true);
+      const loss = ammFormulas.calculatePercentLossBalanced(
+        new Decimal(1.0),
+        new Decimal(1.0)
+      );
+      expect(loss.eq(ZERO)).toBe(true);
     });
 
     it('should calculate positive loss for price changes', () => {
-      const initialPrice = new Decimal(1.0);
-      const currentPrice = new Decimal(2.0);
-      const loss = ammFormulas.calculateImpermanentLoss(initialPrice, currentPrice);
-      
-      expect(loss.gt(0)).toBe(true);
+      const loss = ammFormulas.calculatePercentLossBalanced(
+        new Decimal(1.0),
+        new Decimal(2.0)
+      );
+      expect(loss.gt(ZERO)).toBe(true);
     });
 
     it('should be symmetric for price changes', () => {
       const initialPrice = new Decimal(1.0);
-      const price1 = new Decimal(2.0);
-      const price2 = new Decimal(0.5);
-      
-      const loss1 = ammFormulas.calculateImpermanentLoss(initialPrice, price1);
-      const loss2 = ammFormulas.calculateImpermanentLoss(initialPrice, price2);
-      
+      const loss1 = ammFormulas.calculatePercentLossBalanced(
+        initialPrice,
+        new Decimal(2.0)
+      );
+      const loss2 = ammFormulas.calculatePercentLossBalanced(
+        initialPrice,
+        new Decimal(0.5)
+      );
       expect(loss1.eq(loss2)).toBe(true);
+    });
+
+    it('should throw error for zero prices', () => {
+      expect(() => {
+        ammFormulas.calculatePercentLossBalanced(ZERO, new Decimal(1.0));
+      }).toThrow('initialPrice must be positive');
     });
   });
 
-  describe('calculateMinAmountOut', () => {
-    it('should calculate correct minimum amount out', () => {
-      const amountOut = new Decimal(1000);
-      const slippageTolerance = new Decimal(1); // 1%
-      const minAmountOut = ammFormulas.calculateMinAmountOut(amountOut, slippageTolerance);
-      
-      expect(minAmountOut).toBeDefined();
-      expect(minAmountOut.lt(amountOut)).toBe(true);
-      expect(minAmountOut.gt(0)).toBe(true);
+  describe('calculatePnL', () => {
+    it('should calculate PnL correctly', () => {
+      const profit = new Decimal(0.1);
+      const loss = new Decimal(0.05);
+      const pnl = ammFormulas.calculatePnL(profit, loss);
+      // PnL = (1 + 0.1) * (1 - 0.05) - 1 = 1.1 * 0.95 - 1 = 1.045 - 1 = 0.045
+      expect(pnl.gt(ZERO)).toBe(true);
     });
 
-    it('should handle zero slippage', () => {
-      const amountOut = new Decimal(1000);
-      const slippageTolerance = new Decimal(0);
-      const minAmountOut = ammFormulas.calculateMinAmountOut(amountOut, slippageTolerance);
-      
-      expect(minAmountOut.eq(amountOut)).toBe(true);
+    it('should handle negative PnL', () => {
+      const profit = new Decimal(0.01);
+      const loss = new Decimal(0.1);
+      const pnl = ammFormulas.calculatePnL(profit, loss);
+      // PnL = (1 + 0.01) * (1 - 0.1) - 1 = 1.01 * 0.9 - 1 = 0.909 - 1 = -0.091
+      expect(pnl.lt(ZERO)).toBe(true);
+    });
+  });
+
+  describe('calculateAPR', () => {
+    it('should calculate APR correctly', () => {
+      const pnl = new Decimal(0.05);
+      const annualizationFactor = new Decimal(2);
+      const apr = ammFormulas.calculateAPR(pnl, annualizationFactor);
+      expect(apr.eq(new Decimal(0.1))).toBe(true);
+    });
+  });
+
+  describe('calculatePeriodReturn', () => {
+    it('should calculate period return correctly', () => {
+      const pnlAtT = new Decimal(0.1);
+      const pnlAtTMinus1 = new Decimal(0.05);
+      const returnRate = ammFormulas.calculatePeriodReturn(pnlAtT, pnlAtTMinus1);
+      // r = (0.1 - 0.05) / 0.05 = 1.0
+      expect(returnRate.eq(ONE)).toBe(true);
+    });
+
+    it('should throw error for zero previous PnL', () => {
+      expect(() => {
+        ammFormulas.calculatePeriodReturn(new Decimal(0.1), ZERO);
+      }).toThrow('pnlAtTMinus1 cannot be zero');
+    });
+  });
+
+  describe('calculateAverageReturn', () => {
+    it('should calculate average return correctly', () => {
+      const returns = [
+        new Decimal(0.1),
+        new Decimal(0.2),
+        new Decimal(0.15)
+      ];
+      const avg = ammFormulas.calculateAverageReturn(returns, new Decimal(3));
+      // (0.1 + 0.2 + 0.15) / 3 = 0.15
+      expect(avg.eq(new Decimal(0.15))).toBe(true);
+    });
+  });
+
+  describe('calculateInstantaneousVolatility', () => {
+    it('should calculate volatility correctly', () => {
+      const currentPrice = new Decimal(2.0);
+      const previousPrice = new Decimal(1.0);
+      const volatility = ammFormulas.calculateInstantaneousVolatility(
+        currentPrice,
+        previousPrice
+      );
+      expect(volatility.gte(ZERO)).toBe(true);
+    });
+  });
+
+  describe('calculateAverageVolatility', () => {
+    it('should calculate average volatility correctly', () => {
+      const volatilities = [
+        new Decimal(0.1),
+        new Decimal(0.2),
+        new Decimal(0.15)
+      ];
+      const avg = ammFormulas.calculateAverageVolatility(
+        volatilities,
+        new Decimal(3)
+      );
+      expect(avg.gt(ZERO)).toBe(true);
+    });
+  });
+
+  describe('getAnnualizationFactor', () => {
+    it('should calculate annualization factor correctly', () => {
+      const avgBlockTime = new Decimal(5); // 5 seconds
+      const blockNow = new Decimal(1000);
+      const blockPast = new Decimal(100);
+      const factor = ammFormulas.getAnnualizationFactor(
+        avgBlockTime,
+        blockNow,
+        blockPast
+      );
+      expect(factor.gt(ZERO)).toBe(true);
+    });
+
+    it('should throw error if blockNow <= blockPast', () => {
+      expect(() => {
+        ammFormulas.getAnnualizationFactor(
+          new Decimal(5),
+          new Decimal(100),
+          new Decimal(100)
+        );
+      }).toThrow('blockNow must be greater than blockPast');
     });
   });
 });
+
