@@ -43,8 +43,7 @@ const project: StellarProject = {
       'Test SDF Network ; September 2015' for testnet
       'Public Global Stellar Network ; September 2015' for mainnet
       'Test SDF Future Network ; October 2022' for Future Network */
-    // Testnet by default; adjust to mainnet by changing the passphrase above
-    chainId: "Test SDF Network ; September 2015",//process.env.CHAIN_ID!,
+    chainId: process.env.CHAIN_ID || "Test SDF Network ; September 2015",
     /**
      * These endpoint(s) should be public non-pruned archive node
      * We recommend providing more than one endpoint for improved reliability, performance, and uptime
@@ -55,17 +54,21 @@ const project: StellarProject = {
      * You can find RPC endpoints for Stellar here https://soroban.stellar.org/docs/reference/rpc-list
      */
     // Horizon endpoint(s) used to read history. Prefer non-pruned archive nodes
-    endpoint: ["https://horizon-testnet.stellar.org"],//['https://horizon.stellar.lobstr.co'],
+    // Supports comma-separated endpoints in .env file
+    endpoint: process.env.HORIZON_ENDPOINT 
+      ? process.env.HORIZON_ENDPOINT.split(',').map(e => e.trim())
+      : ["https://horizon-testnet.stellar.org"],
     /* This is a specific Soroban endpoint
       It is only required when you are using a soroban/EventHandler */
     // Soroban RPC endpoint used for contract event decoding
-    sorobanEndpoint: "https://soroban-testnet.stellar.org"//"https://mainnet.sorobanrpc.com",//"https://soroban-rpc.mainnet.stellar.gateway.fm",
+    sorobanEndpoint: process.env.SOROBAN_ENDPOINT || "https://soroban-testnet.stellar.org",
   },
   dataSources: [
     {
       kind: StellarDatasourceKind.Runtime,
       // Logical start block for indexing (e.g. when contracts were deployed)
-      startBlock: 794923,//584425, //657106 for demo
+      startBlock: process.env.START_BLOCK ? parseInt(process.env.START_BLOCK, 10) : 1675410,
+      //stopBlock: process.env.STOP_BLOCK ? parseInt(process.env.STOP_BLOCK, 10) : undefined,
       mapping: {
         file: "./dist/index.js",
         handlers: [
@@ -257,7 +260,7 @@ const project: StellarProject = {
             handler: "handleNewPairAquariusEvent",
             kind: StellarHandlerKind.Event,
             filter: {
-               contractId: "CDQWFZRG5VFGT5FI2UBVL333PSSUTBY4GJMMBAJXQAAAX6ZICBBCV5X2",
+              contractId: process.env.AQUARIUS_CONTRACT_ID || "CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD",
               topics: ["add_pool"],
             },
           },
@@ -265,40 +268,32 @@ const project: StellarProject = {
             handler: "handleDepositAquariusEvent", // deposit liquidity
             kind: StellarHandlerKind.Event,
             filter: {
-               contractId: "CBXIO7XBTVPZAO3VT4FDAY7TIWWI77F7JUK3U3WH6XX6QA6C7KDFBBPZ",
-              topics: ["deposit"],
+              contractId: process.env.AQUARIUS_CONTRACT_ID || "CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD",
+              topics: ["deposit_liquidity"],
             },
           },
           {
             handler: "handleWithdrawAquariusEvent", // withdraw liquidity
             kind: StellarHandlerKind.Event,
             filter: {
-               contractId: "CBXIO7XBTVPZAO3VT4FDAY7TIWWI77F7JUK3U3WH6XX6QA6C7KDFBBPZ",
+              contractId: process.env.AQUARIUS_CONTRACT_ID || "CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD",
               topics: ["withdraw"],
             },
           },
-            {
-              handler: "handleSwapAquariusEvent", // swap liquidity
-              kind: StellarHandlerKind.Event,
-              filter: {
-                contractId: "CBXIO7XBTVPZAO3VT4FDAY7TIWWI77F7JUK3U3WH6XX6QA6C7KDFBBPZ",
-                topics: ["swap"],
-              },
+          {
+            handler: "handleTradeAquariusEvent", // trade liquidity
+            kind: StellarHandlerKind.Event,
+            filter: {
+              topics: ["trade"],
             },
-            {
-              handler: "handleTradeAquariusEvent", // trade liquidity
-              kind: StellarHandlerKind.Event,
-              filter: {
-                topics: ["trade"],
-              },
+          },
+          {
+            handler: "handleUpdateReservesAquariusEvent", // update reserves
+            kind: StellarHandlerKind.Event,
+            filter: {
+              topics: ["update_reserves"],
             },
-            {
-              handler: "handleUpdateReservesAquariusEvent", // update reserves
-              kind: StellarHandlerKind.Event,
-              filter: {
-                topics: ["update_reserves"],
-              },
-            },
+          },
 
         ],
 

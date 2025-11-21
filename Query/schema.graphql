@@ -211,6 +211,7 @@ type SwapPhoenixEntity @entity {
   reserve_after1: String!
   spread_amount: String!
   referral_fee: String!
+  fee: String!
   sender: String!
   block: String!
   timestamp: String!

@@ -12,7 +12,7 @@ import { NewPairPhoenixTokenAEvent, NewPairPhoenixTokenBEvent, NewPairPhoenixEve
   WithdrawReturnAmountAPhoenixEvent, WithdrawReturnAmountBPhoenixEvent, WithdrawSenderPhoenixEvent,WithdrawSharesAmountPhoenixEvent
  } from "../Phoenix/phoenixparser";
 
-import {SwapAquariusEvent, WithdrawAquariusEvent, DepositAquariusEvent, NewPairAquariusEvent, TradeAquariusEvent, UpdateReservesAquariusEvent} from "../Aquarius/aquariusparser"; 
+import {WithdrawAquariusEvent, DepositAquariusEvent, NewPairAquariusEvent, TradeAquariusEvent, UpdateReservesAquariusEvent} from "../Aquarius/aquariusparser"; 
 import { swapSoroswapEvent, depositSoroswapEvent, removeSoroswapEvent, newPairSoroswaoEvent, swapPairEvent, syncSoroswapEvent } from "../Soroswap/soroswapparser";
 
 import http from "http";
@@ -172,12 +172,6 @@ export async function handleWithdrawAquariusEvent(event: SorobanEvent): Promise<
    // Initialize WebSocket if needed
    //initializeWebSocketIfNeeded();
   await WithdrawAquariusEvent(event);//, wsService);
-}
-export async function handleSwapAquariusEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapAquarius EVENT /////");
-   // Initialize WebSocket if needed
-   //initializeWebSocketIfNeeded();
-  await SwapAquariusEvent(event);//, wsService);
 }
 export async function handleTradeAquariusEvent(event: SorobanEvent): Promise<void> {
   logger.info("///// RAW TradeAquarius EVENT /////");
