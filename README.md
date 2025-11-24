@@ -434,6 +434,24 @@ docker run --env-file .env lobster-decisiontaker
 
 ---
 
+## 🖥️ VPS Sizing Guide
+
+Recommended baseline VPS sizes for each component. Adjust upward if you expect full-history indexing, heavier analytics workloads, or large traffic spikes.
+
+- **Query (`Query/`)**  
+  `4 vCPU / 8 GB RAM / 80 GB SSD` supports the SubQuery indexer, GraphQL API, and Postgres without contention.
+
+- **DataProcess (`DataProcess/`)**  
+  `4 vCPU / 8 GB RAM / 60 GB SSD` provides enough CPU for analytics batches and room for Docker layers plus cache.
+
+- **DecisionTaker (`DecisionTaker/`)**  
+  `2 vCPU / 4 GB RAM / 40 GB SSD` easily runs the automation API and multisig signer.
+
+- **All-in-one staging stack**  
+  `8 vCPU / 16 GB RAM / 150 GB SSD` hosts every service (Query + DataProcess + DecisionTaker + Postgres) comfortably on a single VPS.
+
+---
+
 ## 📚 API Documentation
 
 ### Query (GraphQL)
@@ -513,6 +531,8 @@ Base URL: `http://localhost:3334`
 - `AQUARIUS_ROUTER_ID` - Aquarius router address
 
 ---
+
+
 
 ## 🤝 Contributing
 

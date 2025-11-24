@@ -243,6 +243,22 @@ Monitoring: visit http://localhost:8222/healthz or the JetStream dashboard to in
 
 ---
 
+## Monitoring with Grafana
+
+Expose the SubQuery node metrics endpoint to your Prometheus/Grafana stack to confirm the indexer keeps catching up:
+
+1. **Scrape the node**: Add `http://localhost:3001/metrics` (or your deployed URL) as a Prometheus target. This endpoint is enabled by default on the `subquery-node` container.
+2. **Track progress**: The metric `subql_indexer_processing_block_height` reports the latest processed ledger. Configure a Grafana panel to display it or set an alert if it stops increasing.
+3. **Quick sanity check**: Even without Prometheus, you can curl the endpoint locally and verify the value moves upward over time:
+   ```
+   curl http://localhost:3001/metrics | grep subql_indexer_processing_block_height
+   ```
+   If the number is flat or decreasing, inspect your Horizon endpoint, database connectivity, or `docker compose logs subquery-node`.
+
+This simple check ensures your indexing pipeline is live before downstream services rely on the data.
+
+---
+
 ## Support & References
 
 - SubQuery Academy: https://academy.subquery.network
