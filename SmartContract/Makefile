@@ -2,8 +2,8 @@ SUBDIRS := contracts/factory contracts/multihop contracts/pool contracts/pool_st
 BUILD_FLAGS ?=
 #CCFDSQDSDIQZWDHFOAB5ND3W5UTAIPM6HZOJWDPL7YUKL5BGUTCVUJVG
 # Variables
-CONTRACT_ID = CCXIYVIZBHOYXIG5HNXDSIKQDQI3AGLG4P2FPR4GCVQNP6MX7DJ5A5ZD
-FACTORY_ID = CBHIDOTHSNV2V2MOZE45VHU6RGAGQ5UVLEVXS756NLP2I5LYAMVYEOPX
+CONTRACT_ID = CB4NZKCSIXDI2UDFRUXXDAS73VK72GZZHNLRRVZ7CRJG5YYQSOPCPWN4
+FACTORY_ID = CCP5SWTXCJQGDX7NYL5ZVYE7MQCCDJNF4GYUX6WR5TYPGMCRXLSEADOS
 TOKEN_ID = CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 SOURCE_ACCOUNT = alice2
 NETWORK = testnet
@@ -11,7 +11,7 @@ ADMIN = alice2
 RESERVE = GBGCUKKP6NNBFXRH53OADNJ5BXPGXDZPI3O6EZTRZZGQGFAE57NAGW6Y
 APP_NAME_HEX = e9181ff69be9793965680ae5a8b4f35c69e9047f915c4977f6bae14609ab73e4 # Hex of 32-byte name
 CREATOR_ADDRESS= alice2
-
+MULTISIG_ADDRESS = CAMC23BGAKOGSWW2ZEZAHKXDOR3NMBCDDNG3YHCD6WYYF6JMYXXRMK3J
 
 default: build, deploy
 
@@ -64,8 +64,8 @@ deploy:
     --network $(NETWORK) \
 	-- \
 	--owner $(SOURCE_ACCOUNT) \
-	--multisig CB7562EGV5GN7LQTTL3SGZX7QV4TWETXKSPWJPHT4ERM544J3AM62I6B \
-	--token0 CC6NSWYCKFHKYMNREP4TCKWXP22A3LAO77AE4ZBPPUYUXCPLDOZYAHA4 \
+	--multisig CBX5O4ZTTZQRU2BSIR7MP56I7Y6NX2BXEAQBOM7TH32KJYU7UTN5JCOH \
+	--token0 CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \
 	--token1 CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5 \
 	--fee_cut_bps 1000
 
@@ -77,7 +77,7 @@ deploy_factory:
     --network $(NETWORK) \
 	-- \
 	--admin $(SOURCE_ACCOUNT) \
-	--wasm_hash '[0, 233, 133, 187, 204, 45, 252, 74, 146, 104, 67, 91, 11, 161, 181, 194, 212, 7, 90, 23, 116, 179, 212, 135, 194, 143, 128, 58, 157, 43, 120, 72]' \
+	--wasm_hash '[ 116, 61, 11, 148, 131, 66, 66, 152, 68, 126, 72, 207, 28, 100, 94, 80, 77, 22, 219, 14, 195, 125, 6, 177, 33, 40, 131, 107, 84, 5, 96, 123]' \
 	--fee_bps 1000
 
 deploy_token:
@@ -123,7 +123,7 @@ initialize_factory:
 		-- \
 		initialize \
 		--admin $(SOURCE_ACCOUNT) \
-		--wasm_hash '[115, 205, 157, 165, 124, 13, 87, 8, 129, 67, 23, 60, 21, 115, 226, 152, 157, 73, 29, 130, 230, 156, 140, 111, 138, 2, 191, 6, 21, 7, 207, 186]' \
+		--wasm_hash '[ 160, 10, 94, 238, 136, 227, 137, 84, 69, 198, 212, 55, 183, 32, 26, 208, 115, 22, 255, 189, 211, 219, 26, 170, 171, 108, 133, 89, 241, 60, 12, 212]' \
 		--fee_bps 1000
 
 
@@ -212,9 +212,9 @@ add_liquidity_soroswap:
 		add_liquidity_soroswap \
 		--caller $(SOURCE_ACCOUNT) \
 		--amount0 6000000 \
-		--amount1 6000000 \
-		--amount0_min 0 \
-		--amount1_min 0 \
+		--amount1 6000001 \
+		--amount0_min 5 \
+		--amount1_min 5 \
 		--deadline_ledger 99999999999 \
 		--router_address CCKGGR3WQT3DJX7AW5YZLYBW5TP2HK6WSRLI4TFXVLSOALW4EBWWZ6Z4 \
 
@@ -226,11 +226,11 @@ add_liquidity_phoenix:
 		-- \
 		add_liquidity_phoenix \
 		--caller $(SOURCE_ACCOUNT) \
-		--amount0 5000 \
-		--amount1 1600 \
+		--amount0 6000000 \
+		--amount1 6000000 \
 		--amount0_min 5 \
 		--amount1_min 5 \
-		--pool_address CABLJTVFD3WECRDAYBI3WQU4E66RK5WNMD7T2UMFIBL4ISLGXRRTCB3R \
+		--pool_address CBW6PPCXSPOYVQAMWGEC5C2DHVYVGEPTNTC6IWO7QO7WCFJXDXNTMTXJ \
 		--deadline 99999999999 \
 		--slippage 500 \
 
@@ -242,9 +242,9 @@ add_liquidity_aquarius:
 		-- \
 		add_liquidity_aquarius \
 		--caller $(SOURCE_ACCOUNT) \
-		--amount0 100000 \
-		--amount1 100000 \
-		--pool_address CD6J56LNQZIZQCH2X6PCX4VSROIK2IDL3MIVPB3AQXN7XLMKQ36L7Q5P \
+		--amount0 6000000 \
+		--amount1 6000000 \
+		--pool_address CBBNDGG22VIMIKF2RKDGLNJR7BJSTJ6CFNXVEGHIG7REZ3ZKLJZ2ETIL \
 
 
 withdraw_soroswap:
@@ -321,7 +321,7 @@ add_to_pool:
 		-- \
 		add_liquidity \
 		--token_a CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \
-		--token_b CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5 \
+		--token_b CC6NSWYCKFHKYMNREP4TCKWXP22A3LAO77AE4ZBPPUYUXCPLDOZYAHA4 \
 		--amount_a_desired 1000000000 \
 		--amount_b_desired 5000000000 \
 		--amount_a_min 5 \
@@ -368,7 +368,7 @@ emit_trade:
 
 add_phoenix_liquidity:
 	stellar contract invoke \
-		--id CBW6PPCXSPOYVQAMWGEC5C2DHVYVGEPTNTC6IWO7QO7WCFJXDXNTMTXJ \
+		--id CDR6GMTHP4VV3CPLBJHAELQQLG5B2Z74T6UEXN6OASDGXVS7TRBIT44S \
 		--source $(SOURCE_ACCOUNT) \
 		--network $(NETWORK) \
 		-- \
@@ -433,7 +433,7 @@ fees_enabled:
 
 deposit_aquarius:
 	stellar contract invoke \
-		--id CBBNDGG22VIMIKF2RKDGLNJR7BJSTJ6CFNXVEGHIG7REZ3ZKLJZ2ETIL \
+		--id CC4EL6BDSNDQFN33EHRTKQAI2HYTXQO6OUSMFI7JSO3BVJMSOWTF7ECQ \
 		--source $(SOURCE_ACCOUNT) \
 		--network $(NETWORK) \
 		-- \
@@ -444,7 +444,7 @@ deposit_aquarius:
 
 swap_aquarius:
 	stellar contract invoke \
-		--id CD3LFMMLBQ6RBJUD3Z2LFDFE6544WDRMWHEZYPI5YDVESYRSO2TT32BX \
+		--id CALZLAUPAHSAJACOSUM5UFKCPP323MGWF6IWXARNKD3B2KY4SYIOSV6C \
 		--source $(SOURCE_ACCOUNT) \
 		--network $(NETWORK) \
 		-- \
@@ -568,7 +568,7 @@ create_pair_soroswap:
 		-- \
 		create_pair \
 		--token_a CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \
-		--token_b CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5 \
+		--token_b CC6NSWYCKFHKYMNREP4TCKWXP22A3LAO77AE4ZBPPUYUXCPLDOZYAHA4 \
 
 create_pair_phoenix:
 	stellar contract invoke \
@@ -578,7 +578,7 @@ create_pair_phoenix:
 		-- \
 		create_liquidity_pool \
 		--sender $(SOURCE_ACCOUNT) \
-		--lp_init_info '{ "admin": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL", "swap_fee_bps": 1000, "fee_recipient": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL", "max_allowed_slippage_bps": 10000, "default_slippage_bps": 3000, "max_allowed_spread_bps": 10000, "max_referral_bps": 5000, "token_init_info": { "token_b": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC", "token_a": "CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5" }, "stake_init_info": { "min_bond": "100", "min_reward": "100", "manager": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL", "max_complexity": 7 } }' \
+		--lp_init_info '{ "admin": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL", "swap_fee_bps": 1000, "fee_recipient": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL", "max_allowed_slippage_bps": 10000, "default_slippage_bps": 3000, "max_allowed_spread_bps": 10000, "max_referral_bps": 5000, "token_init_info": { "token_b": "CCWHNLNACQX7KI25D62GZI23MLMOWRBVT5VWCRCWSBCDRAJVRACNLNHL", "token_a": "CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5" }, "stake_init_info": { "min_bond": "100", "min_reward": "100", "manager": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL", "max_complexity": 7 } }' \
 		--default_slippage_bps 3000 \
 		--max_allowed_fee_bps 10000 \
 		--share_token_name "PPP" \
@@ -592,7 +592,180 @@ create_pair_aquarius:
 		--source $(SOURCE_ACCOUNT) \
 		--network $(NETWORK) \
 		-- \
-		init_standard_pool \
+		init_stableswap_pool \
 		--user $(SOURCE_ACCOUNT) \
-		--tokens '["CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5", "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"]' \
+		--tokens '["CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5", "CC6NSWYCKFHKYMNREP4TCKWXP22A3LAO77AE4ZBPPUYUXCPLDOZYAHA4"]' \
 		--fee_fraction 30
+
+
+make_soroswap_swap:
+	stellar contract invoke \
+		--id CCKGGR3WQT3DJX7AW5YZLYBW5TP2HK6WSRLI4TFXVLSOALW4EBWWZ6Z4 \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		swap_exact_tokens_for_tokens \
+		--amount_in 1000000000 \
+		--amount_out_min 0 \
+		--path '["CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC", "CC6NSWYCKFHKYMNREP4TCKWXP22A3LAO77AE4ZBPPUYUXCPLDOZYAHA4"]' \
+		--to $(SOURCE_ACCOUNT) \
+		--deadline 99999999999
+
+swap_phoenix:
+	stellar contract invoke \
+		--id CDR6GMTHP4VV3CPLBJHAELQQLG5B2Z74T6UEXN6OASDGXVS7TRBIT44S \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		swap \
+		--sender $(SOURCE_ACCOUNT) \
+		--offer_asset CCWHNLNACQX7KI25D62GZI23MLMOWRBVT5VWCRCWSBCDRAJVRACNLNHL \
+		--offer_amount 1000000000 \
+
+
+get_multisig:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_multisig
+
+get_reserves_soroswap:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_reserves \
+		--pool_address CDYVOUSSL6LVR67CVMCY4YUDNB6NYGOZ4S55CKYKOQMNHWKTNNKFL2QZ \
+		--protocol_tvl 0
+
+get_reserves_aquarius:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_reserves \
+		--pool_address CBBNDGG22VIMIKF2RKDGLNJR7BJSTJ6CFNXVEGHIG7REZ3ZKLJZ2ETIL \
+		--protocol_tvl 2
+
+get_reserves_phoenix:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_reserves \
+		--pool_address CBW6PPCXSPOYVQAMWGEC5C2DHVYVGEPTNTC6IWO7QO7WCFJXDXNTMTXJ \
+		--protocol_tvl 1
+
+get_amounts_from_phoenix:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_amounts_from_phoenix \
+		--pool_address CBW6PPCXSPOYVQAMWGEC5C2DHVYVGEPTNTC6IWO7QO7WCFJXDXNTMTXJ
+
+get_lp_phoenix:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_lp_phoenix \
+		--pool_address CBW6PPCXSPOYVQAMWGEC5C2DHVYVGEPTNTC6IWO7QO7WCFJXDXNTMTXJ
+
+get_deposit_amounts:
+	stellar contract invoke \
+		--id $(CONTRACT_ID) \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_deposit_amounts \
+		--desired_a 10000 \
+		--min_a 0 \
+		--desired_b 50000 \
+		--min_b 0 \
+		--pool_balance_a "1007221003"  \
+		--pool_balance_b "5036104995" \
+		--my_allowed_slippage 500
+
+
+
+
+token_0_soroswap:
+	stellar contract invoke \
+	--id "CDYVOUSSL6LVR67CVMCY4YUDNB6NYGOZ4S55CKYKOQMNHWKTNNKFL2QZ" \
+	--source $(SOURCE_ACCOUNT) \
+	--network $(NETWORK) \
+	-- \
+	token_0
+
+tokenName:
+	stellar contract invoke \
+		--id CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5 \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		name
+
+
+########################################################
+query_pools_phoenix:
+	stellar contract invoke \
+		--id CB4SVAWJA6TSRNOJZ7W2AWFW46D5VR4ZMFZKDIKXEINZCZEGZCJZCKMI \
+		--source $(SOURCE_ACCOUNT) \
+		--network mainnet \
+		--send=no \
+		-- \
+		query_all_pools_details
+
+all_pairs_length:
+	stellar contract invoke \
+		--id CCVFGQXMZ5DUFP25SCBSNOWNNMJ4ZPWPJ2KWOXT6F7ISQPRRRXGRDUPO \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		--send=no \
+		-- \
+		all_pairs_length
+
+all_pairs_soroswap:
+	stellar contract invoke \
+		--id CCVFGQXMZ5DUFP25SCBSNOWNNMJ4ZPWPJ2KWOXT6F7ISQPRRRXGRDUPO \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		--send=no \
+		-- \
+		all_pairs \
+		--n 2
+
+get_tokens_sets_count:
+	stellar contract invoke \
+		--id CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_tokens_sets_count
+
+get_tokens_aquarius:
+	stellar contract invoke \
+		--id CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_tokens \
+		--index 19
+
+get_pools_for_tokens_range:
+	stellar contract invoke \
+		--id CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD \
+		--source $(SOURCE_ACCOUNT) \
+		--network $(NETWORK) \
+		-- \
+		get_pools_for_tokens_range \
+		--start 18 \
+		--end 25

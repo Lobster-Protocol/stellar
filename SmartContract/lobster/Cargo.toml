@@ -18,7 +18,6 @@ admin = []
 [dependencies]
 soroban-sdk = { workspace = true }
 soroban-token-sdk = { workspace = true }
-soroban-decimal = { path = "../packages/decimal" }
 
 
 [dev-dependencies]

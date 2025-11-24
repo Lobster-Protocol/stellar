@@ -1,4 +1,4 @@
-import { Client as ClientLobster, networks as lobsterNetworks } from './lobster';
+import { Client as ClientLobster, networks as lobsterNetworks } from './lobster.js';
 import { TransactionBuilder, Keypair } from '@stellar/stellar-sdk';
 
 type SignFn = (txXdr: string) => Promise<{ signedTxXdr: string; signerAddress: string }>
@@ -41,9 +41,7 @@ export class LobsterClient {
 	}
 
 	// Writes (return assembled transactions)
-	init(params: Parameters<ClientLobster['init']>[0]) {
-		return this.lobster.init(params);
-	}
+
 	exit_reentrancy() {
 		return this.lobster.exit_reentrancy();
 	}
@@ -71,9 +69,7 @@ export class LobsterClient {
 	withdraw_contract(params: Parameters<ClientLobster['withdraw_contract']>[0]) {
 		return this.lobster.withdraw_contract(params);
 	}
-	transfer_fee_cut(params: Parameters<ClientLobster['transfer_fee_cut']>[0]) {
-		return this.lobster.transfer_fee_cut(params);
-	}
+
 
 	// Reads (simulate and return retval)
 	async get_owner() {

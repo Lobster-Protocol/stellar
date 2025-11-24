@@ -777,7 +777,6 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 name = "lobster-contract"
 version = "1.7.0"
 dependencies = [
- "soroban-decimal",
  "soroban-sdk",
  "soroban-token-sdk",
 ]
@@ -786,7 +785,6 @@ dependencies = [
 name = "lobster-factory"
 version = "1.7.0"
 dependencies = [
- "soroban-decimal",
  "soroban-sdk",
  "soroban-token-sdk",
 ]
@@ -1186,13 +1184,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "soroban-decimal"
-version = "1.7.0"
-dependencies = [
- "soroban-sdk",
 ]
 
 [[package]]

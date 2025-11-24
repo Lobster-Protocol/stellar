@@ -25,6 +25,7 @@ ROOT_DIR="/home/esteban/Desktop/Lobster"
 : "${DEPOSIT_AMOUNT0:=6000000}"
 : "${DEPOSIT_AMOUNT1:=6000000}"
 
+
 # Ensure required executables are present before doing anything else.
 for cmd in soroban python3; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -63,7 +64,7 @@ except ValueError as exc:
 print("[" + ", ".join(byte_values) + "]")
 PYCODE
 )"
-echo "    wasm hash as Bytes32: $WASM_HASH_BYTES"
+echo "    wasm hash as Bytes32: [56, 3, 195, 229, 83, 12, 211, 115, 31, 107, 48, 174, 23, 106, 146, 103, 242, 72, 90, 124, 226, 37, 192, 254, 145, 207, 216, 255, 236, 158, 85, 141]"
 
 echo
 echo "==> Deploying factory contract:"
@@ -74,7 +75,7 @@ FACTORY_DEPLOY_OUTPUT="$(soroban contract deploy \
   --network "$NETWORK" \
   -- \
   --admin "$SOURCE_ACCOUNT" \
-  --wasm_hash "$WASM_HASH_BYTES" \
+  --wasm_hash '[56, 3, 195, 229, 83, 12, 211, 115, 31, 107, 48, 174, 23, 106, 146, 103, 242, 72, 90, 124, 226, 37, 192, 254, 145, 207, 216, 255, 236, 158, 85, 141]' \
   --fee_bps "$FEE_BPS" 2>&1)"
 echo "$FACTORY_DEPLOY_OUTPUT"
 
@@ -86,7 +87,17 @@ fi
 echo "    factory contract id: $FACTORY_ID"
 
 echo
-echo "==> Creating pool through factory:"
+echo "==> Setting admin:"
+SET_ADMIN_OUTPUT="$(soroban contract invoke \
+  --id "$FACTORY_ID" \
+  --source "$SOURCE_ACCOUNT" \
+  --network "$NETWORK" \
+  -- \
+  set_admin \
+  --new_admin "CBX5O4ZTTZQRU2BSIR7MP56I7Y6NX2BXEAQBOM7TH32KJYU7UTN5JCOH" 2>&1)"
+
+echo
+echo "==> Creating Lobster through factory:"
 CREATE_POOL_OUTPUT="$(soroban contract invoke \
   --id "$FACTORY_ID" \
   --source "$SOURCE_ACCOUNT" \
@@ -106,7 +117,7 @@ fi
 echo "    pool contract id: $POOL_ID"
 
 echo
-echo "==> Depositing into pool:"
+echo "==> Depositing into Lobster:"
 DEPOSIT_OUTPUT="$(soroban contract invoke \
   --id "$POOL_ID" \
   --source "$SOURCE_ACCOUNT" \
@@ -121,5 +132,5 @@ echo "$DEPOSIT_OUTPUT"
 echo
 echo "All steps completed successfully."
 echo "  Factory ID: $FACTORY_ID"
-echo "  Pool ID:    $POOL_ID"
+echo "  Lobster ID:    $POOL_ID"
 

@@ -47,6 +47,14 @@ app.post('/sign', (req, res) => {
   const signature = signerKeypair.sign(payloadHashBuffer);
   const signatureHex = Buffer.from(signature).toString('hex');
 
+  console.log("");
+  console.log("New Signature comming");
+  
+  console.log('signatureHex =>', signatureHex);
+
+  console.log('Waiting for next signature');
+  console.log("");
+  
   return res.json({
     index,
     publicKey: signerPublicKeyHex,
@@ -61,6 +69,8 @@ app.get('/health', (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Multisig signer API listening on http://0.0.0.0:${PORT}`);
   console.log(`Signer public key (hex): ${signerPublicKeyHex}`);
+
+  console.log('Ready to sign ');
 });
 
 

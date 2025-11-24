@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch src/api/server.ts",
     "dev:signer": "tsx watch multisig/signerApi.ts",
     "start:signer": "tsx multisig/signerApi.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
+    "start": "node dist/src/api/server.js",
     "test:factory": "tsx src/testFactory.ts",
-    "test:multisig": "tsx src/multisig.ts"
+    "test:multisig": "tsx src/services/multisig/multisig.ts",
+    "test:multisig-simple": "tsx src/scripts/testMultisigSimple.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -40,6 +40,7 @@ pub enum ContractError {
     AquariusDepositFailed = 521,
     AquariusWithdrawFailed = 522,
     AquariusShareIdQueryFailed = 523,
+    AquariusReserveTooLarge = 524, // Aquarius pool reserves exceed i128::MAX
 
     PhoenixShareTokenQueryFailed = 530,
     PhoenixWithdrawLiquidityFailed = 531,
@@ -56,4 +57,7 @@ pub enum ContractError {
     AlreadyInitialized = 560,
     InvalidFeeValue = 561,
     InvalidAmount = 562,
+    NotInitialized = 563,
+    ReentrancyDetected = 564,
+
 }

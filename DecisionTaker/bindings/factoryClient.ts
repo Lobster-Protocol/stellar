@@ -1,4 +1,4 @@
-import { Client as ClientFactory, networks as factoryNetworks } from './factory';
+import { Client as ClientFactory, networks as factoryNetworks } from './factory.js';
 import { TransactionBuilder, Keypair } from '@stellar/stellar-sdk';
 
 type SignFn = (txXdr: string) => Promise<{ signedTxXdr: string; signerAddress: string }>
@@ -20,11 +20,16 @@ export class FactoryClient {
   public readonly factory: ClientFactory;
   private readonly keypair: Keypair;
 
-  constructor(secret: string, opts?: { rpcUrl?: string }) {
+  constructor(secret: string, factoryId: string, opts?: { rpcUrl?: string }) {
     const rpcUrl = opts?.rpcUrl ?? process.env.RPC_URL ?? 'https://soroban-testnet.stellar.org';
     this.keypair = Keypair.fromSecret(secret);
+
+    const custom_testnet = {
+			networkPassphrase: "Test SDF Network ; September 2015",
+			contractId: factoryId,
+		}
     this.factory = new ClientFactory({
-      ...factoryNetworks.testnet,
+      ...custom_testnet,
       rpcUrl,
       publicKey: this.keypair.publicKey(),
       signTransaction: makeSigner(factoryNetworks.testnet.networkPassphrase, this.keypair)
@@ -32,9 +37,6 @@ export class FactoryClient {
   }
 
   // Writes
-  initialize(params: Parameters<ClientFactory['initialize']>[0]) {
-    return this.factory.initialize(params);
-  }
   create_pool(params: Parameters<ClientFactory['create_pool']>[0]) {
     return this.factory.create_pool(params);
   }

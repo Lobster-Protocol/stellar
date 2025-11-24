@@ -1,4 +1,4 @@
-import { Client as ClientToken, networks as tokenNetworks } from './token';
+import { Client as ClientToken, networks as tokenNetworks } from './token.js';
 import { TransactionBuilder, Keypair } from '@stellar/stellar-sdk';
 
 type SignFn = (txXdr: string) => Promise<{ signedTxXdr: string; signerAddress: string }>

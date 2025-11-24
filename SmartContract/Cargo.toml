@@ -1,8 +1,7 @@
 [workspace]
 members = [
     "lobster",
-    "packages/decimal",
-    "factory",
+    "factory"
 
 ]
 resolver = "2"

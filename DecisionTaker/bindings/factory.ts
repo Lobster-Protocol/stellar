@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CDCRRUTFS3AKPC56LPDQHXLVNJAZTLIJLROJSU5WVKVPUZA2IK6TQVPB",
+    contractId: "CBC5UCJE5BBBCTYO7ZVBZRAIUQKRVXX5FFYFFHWGVFJVBBKMZQ7QYQMA",
   }
 } as const
 
@@ -86,14 +86,18 @@ export const ContractError = {
   9: {message:"InitializeFailed"},
   10: {message:"FeeChangeNotAnnounced"},
   11: {message:"FeeChangeNotReady"},
-  12: {message:"InvalidFeeValue"}
+  12: {message:"InvalidFeeValue"},
+  13: {message:"FeeChangeAlreadyPending"},
+  14: {message:"InvalidPoolTokens"},
+  15: {message:"ContractMathError"}
 }
 
 export interface Client {
   /**
-   * Construct and simulate a initialize transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a exit_reentrancy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Reentrancy guard exit: clears the temporary flag.
    */
-  initialize: ({admin, wasm_hash, fee_bps}: {admin: string, wasm_hash: Buffer, fee_bps: u32}, options?: {
+  exit_reentrancy: (options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -113,7 +117,7 @@ export interface Client {
   /**
    * Construct and simulate a create_pool transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  create_pool: ({user, token0, token1, salt}: {user: string, token0: string, token1: string, salt: Buffer}, options?: {
+  create_pool: ({user, token0, token1}: {user: string, token0: string, token1: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -357,6 +361,8 @@ export interface Client {
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
+        /** Constructor/Initialization Args for the contract's `__constructor` method */
+        {admin, wasm_hash, fee_bps}: {admin: string, wasm_hash: Buffer, fee_bps: u32},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -368,14 +374,15 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy(null, options)
+    return ContractClient.deploy({admin, wasm_hash, fee_bps}, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec([ "AAAAAQAAAAAAAAAAAAAADExvYnN0ZXJQb29scwAAAAQAAAA6VGhlIGFkZHJlc3Mgb2YgdGhlIGxvYnN0ZXIgY29udHJhY3QgZm9yIHRoZSBsaXF1aWRpdHkgcG9vbAAAAAAAD2xvYnN0ZXJfYWRkcmVzcwAAAAATAAAAJFRoZSBhZGRyZXNzIG9mIHRoZSBvd25lciBvZiB0aGUgcG9vbAAAAAVvd25lcgAAAAAAABMAAAAzVGhlIGFzc2V0IEEgaW4gdGhlIHBvb2wgdG9nZXRoZXIgd2l0aCBhc3NldCBhbW91bnRzAAAAAAZ0b2tlbjAAAAAAABMAAAAzVGhlIGFzc2V0IEIgaW4gdGhlIHBvb2wgdG9nZXRoZXIgd2l0aCBhc3NldCBhbW91bnRzAAAAAAZ0b2tlbjEAAAAAABM=",
         "AAAAAQAAAAAAAAAAAAAAEFBlbmRpbmdGZWVDaGFuZ2UAAAADAAAAK1RoZSB0aW1lc3RhbXAgd2hlbiB0aGUgY2hhbmdlIHdhcyBhbm5vdW5jZWQAAAAAFmFubm91bmNlbWVudF90aW1lc3RhbXAAAAAAAAYAAABEVGhlIHRpbWVzdGFtcCB3aGVuIHRoZSBjaGFuZ2UgY2FuIGJlIGV4ZWN1dGVkIChhbm5vdW5jZW1lbnQgKyBkZWxheSkAAAATZXhlY3V0aW9uX3RpbWVzdGFtcAAAAAAGAAAAIVRoZSBuZXcgZmVlIHZhbHVlIGluIGJhc2lzIHBvaW50cwAAAAAAAAtuZXdfZmVlX2JwcwAAAAAE",
-        "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAwAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAAAl3YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAAAAAAHZmVlX2JwcwAAAAAEAAAAAA==",
-        "AAAAAAAAAAAAAAALY3JlYXRlX3Bvb2wAAAAABAAAAAAAAAAEdXNlcgAAABMAAAAAAAAABnRva2VuMAAAAAAAEwAAAAAAAAAGdG9rZW4xAAAAAAATAAAAAAAAAARzYWx0AAAD7gAAACAAAAABAAAAEw==",
+        "AAAAAAAAADFSZWVudHJhbmN5IGd1YXJkIGV4aXQ6IGNsZWFycyB0aGUgdGVtcG9yYXJ5IGZsYWcuAAAAAAAAD2V4aXRfcmVlbnRyYW5jeQAAAAAAAAAAAA==",
+        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAMAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAJd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAAAAAAB2ZlZV9icHMAAAAABAAAAAA=",
+        "AAAAAAAAAAAAAAALY3JlYXRlX3Bvb2wAAAAAAwAAAAAAAAAEdXNlcgAAABMAAAAAAAAABnRva2VuMAAAAAAAEwAAAAAAAAAGdG9rZW4xAAAAAAATAAAAAQAAABM=",
         "AAAAAAAAAAAAAAAJZ2V0X2FkbWluAAAAAAAAAAAAAAEAAAAT",
         "AAAAAAAAAAAAAAANZ2V0X3dhc21faGFzaAAAAAAAAAAAAAABAAAD7gAAACA=",
         "AAAAAAAAAAAAAAAOZ2V0X3Bvb2xfY291bnQAAAAAAAAAAAABAAAABg==",
@@ -387,12 +394,12 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAANc2V0X3dhc21faGFzaAAAAAAAAAEAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",
         "AAAAAAAAAE5Bbm5vdW5jZSBhIGZlZSBjaGFuZ2UuIFRoaXMgc3RhcnRzIHRoZSAyLXdlZWsgZGVsYXkgcGVyaW9kLgpBY2Nlc3M6IGFkbWluIG9ubHkAAAAAABNhbm5vdW5jZV9mZWVfY2hhbmdlAAAAAAEAAAAAAAAAC25ld19mZWVfYnBzAAAAAAQAAAAA",
         "AAAAAAAAAFZFeGVjdXRlIHRoZSBhbm5vdW5jZWQgZmVlIGNoYW5nZSBhZnRlciB0aGUgZGVsYXkgcGVyaW9kIGhhcyBwYXNzZWQuCkFjY2VzczogYWRtaW4gb25seQAAAAAAEmV4ZWN1dGVfZmVlX2NoYW5nZQAAAAAAAAAAAAA=",
-        "AAAABAAAAAAAAAAAAAAADUNvbnRyYWN0RXJyb3IAAAAAAAAMAAAAAAAAABJBbHJlYWR5SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAADk5vdEluaXRpYWxpemVkAAAAAAACAAAAAAAAAA1BbHJlYWR5RXhpc3RzAAAAAAAAAwAAAAAAAAARUG9vbEFscmVhZHlFeGlzdHMAAAAAAAAEAAAAAAAAAAxQb29sTm90Rm91bmQAAAAFAAAAAAAAAAxQb29sTm90T3duZWQAAAAGAAAAAAAAAA1Qb29sTm90QWN0aXZlAAAAAAAABwAAAAAAAAAMUG9vbE5vdFZhbGlkAAAACAAAAAAAAAAQSW5pdGlhbGl6ZUZhaWxlZAAAAAkAAAAAAAAAFUZlZUNoYW5nZU5vdEFubm91bmNlZAAAAAAAAAoAAAAAAAAAEUZlZUNoYW5nZU5vdFJlYWR5AAAAAAAACwAAAAAAAAAPSW52YWxpZEZlZVZhbHVlAAAAAAw=" ]),
+        "AAAABAAAAAAAAAAAAAAADUNvbnRyYWN0RXJyb3IAAAAAAAAPAAAAAAAAABJBbHJlYWR5SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAADk5vdEluaXRpYWxpemVkAAAAAAACAAAAAAAAAA1BbHJlYWR5RXhpc3RzAAAAAAAAAwAAAAAAAAARUG9vbEFscmVhZHlFeGlzdHMAAAAAAAAEAAAAAAAAAAxQb29sTm90Rm91bmQAAAAFAAAAAAAAAAxQb29sTm90T3duZWQAAAAGAAAAAAAAAA1Qb29sTm90QWN0aXZlAAAAAAAABwAAAAAAAAAMUG9vbE5vdFZhbGlkAAAACAAAAAAAAAAQSW5pdGlhbGl6ZUZhaWxlZAAAAAkAAAAAAAAAFUZlZUNoYW5nZU5vdEFubm91bmNlZAAAAAAAAAoAAAAAAAAAEUZlZUNoYW5nZU5vdFJlYWR5AAAAAAAACwAAAAAAAAAPSW52YWxpZEZlZVZhbHVlAAAAAAwAAAAAAAAAF0ZlZUNoYW5nZUFscmVhZHlQZW5kaW5nAAAAAA0AAAAAAAAAEUludmFsaWRQb29sVG9rZW5zAAAAAAAADgAAAAAAAAARQ29udHJhY3RNYXRoRXJyb3IAAAAAAAAP" ]),
       options
     )
   }
   public readonly fromJSON = {
-    initialize: this.txFromJSON<null>,
+    exit_reentrancy: this.txFromJSON<null>,
         create_pool: this.txFromJSON<string>,
         get_admin: this.txFromJSON<string>,
         get_wasm_hash: this.txFromJSON<Buffer>,
