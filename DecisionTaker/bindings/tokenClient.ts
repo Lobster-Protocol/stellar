@@ -27,16 +27,24 @@ export class TokenClient {
 		const rpcUrl = opts?.rpcUrl ?? process.env.RPC_URL ?? 'https://soroban-testnet.stellar.org';
 		this.keypair = Keypair.fromSecret(secret);
 
-		const custom_testnet = {
-			networkPassphrase: "Test SDF Network ; September 2015",
+		// Determine network based on RPC URL
+		const isTestnet = rpcUrl.includes('testnet') || rpcUrl.includes('futurenet');
+		const networkPassphrase = process.env.NETWORK_PASSPHRASE ?? (
+			isTestnet 
+				? tokenNetworks.testnet.networkPassphrase 
+				: "Public Global Stellar Network ; September 2015"
+		);
+
+		const networkConfig = {
+			networkPassphrase: networkPassphrase,
 			contractId: contractId,
 		}
 
 		this.token = new ClientToken({
-			...custom_testnet,
+			...networkConfig,
 			rpcUrl,
 			publicKey: this.keypair.publicKey(),
-			signTransaction: makeSigner(custom_testnet.networkPassphrase, this.keypair)
+			signTransaction: makeSigner(networkPassphrase, this.keypair)
 		});
 	}
 

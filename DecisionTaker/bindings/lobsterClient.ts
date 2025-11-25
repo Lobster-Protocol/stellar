@@ -27,16 +27,21 @@ export class LobsterClient {
 		const rpcUrl = opts?.rpcUrl ?? process.env.RPC_URL ?? 'https://soroban-testnet.stellar.org';
 		this.keypair = Keypair.fromSecret(secret);
 
-		const custom_testnet = {
-			networkPassphrase: "Test SDF Network ; September 2015",
+		// Determine network based on RPC URL
+		const isTestnet = rpcUrl.includes('testnet') || rpcUrl.includes('futurenet');
+		const network = isTestnet ? lobsterNetworks.testnet : (lobsterNetworks as any).unknown;
+		const networkPassphrase = process.env.NETWORK_PASSPHRASE ?? network.networkPassphrase;
+
+		const networkConfig = {
+			networkPassphrase: networkPassphrase,
 			contractId: contractId,
 		}
 
 		this.lobster = new ClientLobster({
-			...custom_testnet,
+			...networkConfig,
 			rpcUrl,
 			publicKey: this.keypair.publicKey(),
-			signTransaction: makeSigner(custom_testnet.networkPassphrase, this.keypair)
+			signTransaction: makeSigner(networkPassphrase, this.keypair)
 		});
 	}
 
@@ -109,11 +114,6 @@ export class LobsterClient {
 	}
 	async get_lp_soroswap(params: Parameters<ClientLobster['get_lp_soroswap']>[0]) {
 		const tx = await this.lobster.get_lp_soroswap(params);
-		const sim = await tx.simulate();
-		return extractRetval(sim);
-	}
-	async can_withdraw() {
-		const tx = await this.lobster.can_withdraw();
 		const sim = await tx.simulate();
 		return extractRetval(sim);
 	}

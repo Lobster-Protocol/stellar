@@ -79,3 +79,14 @@ soroban contract invoke --id <CONTRACT_ID> --fn <function> --arg <json-arg>
 ### Notes
 - Dependency versions are kept in the workspace root, mirroring `soroban-amm/Cargo.toml` to avoid version drift.
 - If you update `soroban-amm` versions, update `[workspace.dependencies]` here accordingly.
+
+
+Factory Contract ID
+CABBLSQONKYI6DKJEBZCTCZ6EFZO6ZRKFH5BPYT3LCKWIOMLW32CCARP
+
+Type Example Lobster
+CCEAT4ZVH7NF6CQEC4BVP4SBPWKSKN4JFL7OGPXNLAXKHTZ5MH4GJXTV
+
+Multisig
+Signer GC36G4RGOAHISGQUKDVBBSEX63E2VHMGRJ3NYHZPYGB65IMTRHCR4GW3
+Contract CCNHYCMBEZFWDRYMWHWB52MRCRLFEORSOK5QYWUZXYSLFKQSO2PRWYYZ

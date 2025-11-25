@@ -24,15 +24,20 @@ export class FactoryClient {
     const rpcUrl = opts?.rpcUrl ?? process.env.RPC_URL ?? 'https://soroban-testnet.stellar.org';
     this.keypair = Keypair.fromSecret(secret);
 
-    const custom_testnet = {
-			networkPassphrase: "Test SDF Network ; September 2015",
-			contractId: factoryId,
-		}
+    // Determine network based on RPC URL
+    const isTestnet = rpcUrl.includes('testnet') || rpcUrl.includes('futurenet');
+    const network = isTestnet ? factoryNetworks.testnet : factoryNetworks.public;
+    const networkPassphrase = process.env.NETWORK_PASSPHRASE ?? network.networkPassphrase;
+
+    const networkConfig = {
+      networkPassphrase: networkPassphrase,
+      contractId: factoryId,
+    }
     this.factory = new ClientFactory({
-      ...custom_testnet,
+      ...networkConfig,
       rpcUrl,
       publicKey: this.keypair.publicKey(),
-      signTransaction: makeSigner(factoryNetworks.testnet.networkPassphrase, this.keypair)
+      signTransaction: makeSigner(networkPassphrase, this.keypair)
     });
   }
 

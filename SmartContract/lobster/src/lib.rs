@@ -337,6 +337,30 @@ impl Lobster {
             .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized))
     }
 
+    /// Updates the multisig admin (LOBSTER) address.
+    ///
+    /// # Parameters
+    /// - `caller`: Must be either the pool owner or current multisig admin
+    /// - `new_multisig`: The new multisig admin address to store
+    ///
+    /// # Access
+    /// Only owner or multisig admin
+    ///
+    /// # Panics
+    /// - If contract is not initialized
+    /// - If caller is not authorized
+    pub fn set_multisig(env: Env, caller: Address, new_multisig: Address) {
+        Self::extend_all_storage_ttl(&env);
+        if !env.storage().persistent().has(&OWNER) {
+            panic_with_error!(env, ContractError::NotInitialized);
+        }
+
+        Self::require_owner_or_admin(&env, caller);
+        env.storage()
+            .persistent()
+            .set(&LOBSTER, &new_multisig);
+    }
+
     /// Returns the address of the first token (token0) in the pair.
     ///
     /// # Returns

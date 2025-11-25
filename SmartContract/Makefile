@@ -2,11 +2,11 @@ SUBDIRS := contracts/factory contracts/multihop contracts/pool contracts/pool_st
 BUILD_FLAGS ?=
 #CCFDSQDSDIQZWDHFOAB5ND3W5UTAIPM6HZOJWDPL7YUKL5BGUTCVUJVG
 # Variables
-CONTRACT_ID = CB4NZKCSIXDI2UDFRUXXDAS73VK72GZZHNLRRVZ7CRJG5YYQSOPCPWN4
-FACTORY_ID = CCP5SWTXCJQGDX7NYL5ZVYE7MQCCDJNF4GYUX6WR5TYPGMCRXLSEADOS
+CONTRACT_ID = CCEAT4ZVH7NF6CQEC4BVP4SBPWKSKN4JFL7OGPXNLAXKHTZ5MH4GJXTV
+FACTORY_ID = CABBLSQONKYI6DKJEBZCTCZ6EFZO6ZRKFH5BPYT3LCKWIOMLW32CCARP
 TOKEN_ID = CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
-SOURCE_ACCOUNT = alice2
-NETWORK = testnet
+SOURCE_ACCOUNT = deployerLobster#alice2
+NETWORK = mainnet
 ADMIN = alice2
 RESERVE = GBGCUKKP6NNBFXRH53OADNJ5BXPGXDZPI3O6EZTRZZGQGFAE57NAGW6Y
 APP_NAME_HEX = e9181ff69be9793965680ae5a8b4f35c69e9047f915c4977f6bae14609ab73e4 # Hex of 32-byte name
@@ -45,15 +45,25 @@ clean:
 		$(MAKE) -C $$dir clean || exit 1; \
 	done
 
-make install:
+install:
 	stellar contract build && \
 	wasm-opt -Oz target/wasm32v1-none/release/lobster_contract.wasm -o target/wasm32v1-none/release/lobster_contract_optimized.wasm && \
-	soroban contract install \
+	soroban contract upload \
     --wasm target/wasm32v1-none/release/lobster_contract_optimized.wasm \
     --source $(SOURCE_ACCOUNT) \
     --network $(NETWORK)
 
-
+deploy_lobster:
+	soroban contract deploy \
+    --wasm target/wasm32v1-none/release/lobster_contract_optimized.wasm \
+    --source $(SOURCE_ACCOUNT) \
+    --network $(NETWORK) \
+	-- \
+	--owner $(SOURCE_ACCOUNT) \
+	--multisig CCNHYCMBEZFWDRYMWHWB52MRCRLFEORSOK5QYWUZXYSLFKQSO2PRWYYZ \
+	--token0 CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75 \
+	--token1 CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA \
+	--fee_cut_bps 1000
 
 deploy:
 	stellar contract build && \
@@ -70,15 +80,16 @@ deploy:
 	--fee_cut_bps 1000
 
 deploy_factory:
-	stellar contract build
+	stellar contract build && \
+	wasm-opt -Oz target/wasm32v1-none/release/lobster_factory.wasm -o target/wasm32v1-none/release/lobster_factory_optimized.wasm && \
 	soroban contract deploy \
-    --wasm target/wasm32v1-none/release/lobster_factory.wasm \
+    --wasm target/wasm32v1-none/release/lobster_factory_optimized.wasm \
     --source $(SOURCE_ACCOUNT) \
     --network $(NETWORK) \
 	-- \
 	--admin $(SOURCE_ACCOUNT) \
-	--wasm_hash '[ 116, 61, 11, 148, 131, 66, 66, 152, 68, 126, 72, 207, 28, 100, 94, 80, 77, 22, 219, 14, 195, 125, 6, 177, 33, 40, 131, 107, 84, 5, 96, 123]' \
-	--fee_bps 1000
+	--wasm_hash '[90, 55, 99, 31, 44, 27, 213, 127, 19, 24, 72, 219, 38, 107, 186, 215, 7, 213, 0, 0, 91, 234, 175, 210, 135, 87, 80, 110, 250, 225, 45, 193]' \
+	--fee_bps 200
 
 deploy_token:
 	stellar contract build
@@ -506,16 +517,14 @@ change_wasm:
 
 bindings:
 	soroban contract bindings typescript \
-  	--rpc-url https://soroban-testnet.stellar.org/ \
-  	--network-passphrase "Test SDF Network ; September 2015" \
+  	--network mainnet \
   	--contract-id $(CONTRACT_ID) \
 	--output-dir ../Bindings \
   	--overwrite
 
 bindings_factory:
 	soroban contract bindings typescript \
-  	--rpc-url https://soroban-testnet.stellar.org/ \
-  	--network-passphrase "Test SDF Network ; September 2015" \
+  	--network mainnet \
   	--contract-id $(FACTORY_ID) \
 	--output-dir ../BindingsFac \
   	--overwrite
