@@ -1,0 +1,97 @@
+[
+  {
+    "contract": "CDNVQW44C3HALYNVQ4SOBXY5EWYTGVYXX6JPESOLQDABJI5FC5LTRRUE",
+    "code": "AQUA",
+    "name": "AQUA"
+  },
+  {
+    "contract": "CDJ7G22ETJ6PRUM5GDPUXYEY3JL6MDY35WMJYWSGX7U6DV5VMQEKH3PG",
+    "code": "ARKA1",
+    "name": "ARKA1"
+  },
+  {
+    "contract": "CCCLTACEMF33GJRJ2JXRQYXDBRLRZNK5GVPA2FVHLOE5TPP6NM7UIYV7",
+    "code": "ARKA2",
+    "name": "ARKA2"
+  },
+  {
+    "contract": "CB22KRA3YZVCNCQI64JQ5WE7UY2VAV7WFLK6A2JN3HEX56T2EDAFO7QF",
+    "code": "BLND",
+    "name": "BLND"
+  },
+  {
+    "contract": "CA7I34G6PVSBBHGH432GGGSEXZ4X3AVQBGAORNIYELU5SS36HA4QLE7U",
+    "code": "CETES",
+    "name": "CETES"
+  },
+  {
+    "contract": "CA2UYOLBRDNT7SRJ7DPKRKQJNJIB3QLRIDKBORAR7IE7XALN4OCSEOBA",
+    "code": "CatGalaxy",
+    "name": "CatGalaxy"
+  },
+  {
+    "contract": "CC6NSWYCKFHKYMNREP4TCKWXP22A3LAO77AE4ZBPPUYUXCPLDOZYAHA4",
+    "code": "FYXM-FIZP-SOROSWAP-LP",
+    "name": "FYXM-FIZP-SOROSWAP-LP"
+  },
+  {
+    "contract": "CBORLTYGFWD5XJEG5A7YC7F72IA6JAMRJVUTMYQNYYBVOEUNAHWKRKK5",
+    "code": "FYXM-NYLM-SOROSWAP-LP",
+    "name": "FYXM-NYLM-SOROSWAP-LP"
+  },
+  {
+    "contract": "CD4LIFTSSRB6EA3JUJZDZ4B54IGZS7R2UWF43MMXZJKRHNXVCMTQPTA5",
+    "code": "FutToken",
+    "name": "FutToken"
+  },
+  {
+    "contract": "CCQZWA6GDCNLEMNUYTCMYGIXLX3ECAXW7RICSUZWWXM5AMDWAANC4SZK",
+    "code": "ICE",
+    "name": "ICE"
+  },
+  {
+    "contract": "CCHFABMT6QGBNWNRNNM7PLJW466JDMVP5VCI3FGGSZX3UT4OWZ44EOJY",
+    "code": "KAYAK",
+    "name": "KAYAK"
+  },
+  {
+    "contract": "CAAKPXIDBJIACGYZJ3G3QR6BT5KB22TXN5EBHLZB3AJL4LJYIHQ3YMGA",
+    "code": "KAYAK",
+    "name": "KAYAK"
+  },
+  {
+    "contract": "CDPWK226V5J4DDWPZ7RBB4VJ7CB3ESSRQJGZVYEKQGVCSONWTPUELX77",
+    "code": "Purritos",
+    "name": "Purritos"
+  },
+  {
+    "contract": "CAVMNQPUNLJ5BHV42NN2FJQLWXEWI35HBOPUTCUBTAFBG3AXRRAQ5EKY",
+    "code": "QASTT",
+    "name": "QASTT"
+  },
+  {
+    "contract": "CB72BTTFJG5AXECFYEAORTIJHM7NE562WC2BJRWJEBW76UA4RDDZVTYI",
+    "code": "TT",
+    "name": "TT"
+  },
+  {
+    "contract": "CAZRY5GSFBFXD7H6GAFBA5YGYQTDXU4QKWKMYFWBAZFUCURN3WKX6LF5",
+    "code": "USDC",
+    "name": "USDC"
+  },
+  {
+    "contract": "CBL6KD2LFMLAUKFFWNNXWOXFN73GAXLEA4WMJRLQ5L76DMYTM3KWQVJN",
+    "code": "USDT",
+    "name": "USDT"
+  },
+  {
+    "contract": "CAYN23UVYVPPKOI4ESAQHTTFIBTASXKTI3MIFD7JT5IIRNBOOFR2PJV4",
+    "code": "YGO",
+    "name": "YGO"
+  },
+  {
+    "contract": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    "code": "XLM",
+    "name": "XLM"
+  }
+]

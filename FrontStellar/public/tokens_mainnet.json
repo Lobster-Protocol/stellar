@@ -1,0 +1,272 @@
+[
+  {
+    "contract": "CCG27OZ5AV4WUXS6XTECWAXEY5UOMEFI2CWFA3LHZGBTLYZWTJF3MJYQ",
+    "code": "AFR",
+    "name": "AFR"
+  },
+  {
+    "contract": "CDHBIACXSM5K2NFCCHQIJQNDJPHGPW4OHIYVXGCFMVT7PNLWXY4NGRNH",
+    "code": "AMM",
+    "name": "AMM"
+  },
+  {
+    "contract": "CAUIKL3IYGMERDRUN6YSCLWVAKIFG5Q4YJHUKM4S4NJZQIA3BAS6OJPK",
+    "code": "AQUA",
+    "name": "AQUA"
+  },
+  {
+    "contract": "CACXKRVCW7I6CWX6RS6ANFDKVCOUI2PB6LTDUROL3J3FMJCRZ4ZLQRF6",
+    "code": "AUDD",
+    "name": "AUDD"
+  },
+  {
+    "contract": "CD5E7YM4MTL5S4B4FKLAMFLMXCN26L4QGPAS7JCVBG4TPW5EIP5WXIQO",
+    "code": "BEEP",
+    "name": "BEEP"
+  },
+  {
+    "contract": "CBCU5VMZ3GNHHKJUWZ2GI7K36MEAXOJW2RJCIJHFPVFGBME3WADLXA6W",
+    "code": "BLAH",
+    "name": "BLAH"
+  },
+  {
+    "contract": "CD25MNVTZDL4Y3XBCPCJXGXATV5WUHHOWMYFF4YBEGU5FCPGMYTVG5JY",
+    "code": "BLND",
+    "name": "BLND"
+  },
+  {
+    "contract": "CDSSDKJZACMXIE4C25TAVLWUQWLRNXSC2TLOFTTRSUAOZOMU5PXGZYEX",
+    "code": "BLUB",
+    "name": "BLUB"
+  },
+  {
+    "contract": "CBF4E5GSTVSITE5Q2ENOTEUQJPBZAU3SBDVLQMSQ7GLBRTSYGUAT722K",
+    "code": "BRL",
+    "name": "BRL"
+  },
+  {
+    "contract": "CBHIQPUXLFLC5O44ZJVUTCL5LMZFLVGU5DEIGSYKBSAPFMOGTKOQEPFM",
+    "code": "BTCLN",
+    "name": "BTCLN"
+  },
+  {
+    "contract": "CDDS7IQJGQ2ZMO66E3MUYXZ56H2OO7RBTTAGZLZKOEA4EXCGZX65JGA7",
+    "code": "CARBON",
+    "name": "CARBON"
+  },
+  {
+    "contract": "CAL6ER2TI6CTRAY6BFXWNWA7WTYXUXTQCHUBCIBU5O6KM3HJFG6Z6VXV",
+    "code": "CETES",
+    "name": "CETES"
+  },
+  {
+    "contract": "CBDRPADR3KIBJNUBNRTTO4P7NO5RVPMYKRJB5YCZUZ6B66RKYK324UJY",
+    "code": "CLPX",
+    "name": "CLPX"
+  },
+  {
+    "contract": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+    "code": "EURC",
+    "name": "EURC"
+  },
+  {
+    "contract": "CBVDRT5474OBUEXF5MJB3UGQ5CG7CKGCAH5M4RV5NBCDJUBZ5OXHJLOU",
+    "code": "EURC",
+    "name": "EURC"
+  },
+  {
+    "contract": "CBN3NCJSMOQTC6SPEYK3A44NU4VS3IPKTARJLI3Y77OH27EWBY36TP7U",
+    "code": "EURx",
+    "name": "EURx"
+  },
+  {
+    "contract": "CBCO65UOWXY2GR66GOCMCN6IU3Y45TXCPBY3FLUNL4AOUMOCKVIVV6JC",
+    "code": "GBPx",
+    "name": "GBPx"
+  },
+  {
+    "contract": "CD4NTX2UXD2X257XCNSWRB45N5GUXVSHFY7L5W53IULIM5EVYAFENQGO",
+    "code": "GIGGLE",
+    "name": "GIGGLE"
+  },
+  {
+    "contract": "CAZQYRFG7A2CZTZ2NEODHZGIOORFFKOEFV7WWZOBJEYXER56ASCUBD7P",
+    "code": "GQX",
+    "name": "GQX"
+  },
+  {
+    "contract": "CDME3GWAU7YSHVB6GWKDOQORR6TYKKQG6G7FDMMO7OPMQALBCNI5A2JR",
+    "code": "HAHA",
+    "name": "HAHA"
+  },
+  {
+    "contract": "CB23WRDQWGSP6YPMY4UV5C4OW5CBTXKYN3XEATG7KJEZCXMJBYEHOUOV",
+    "code": "KALE",
+    "name": "KALE"
+  },
+  {
+    "contract": "CDNGOXGJ34XJ7P7FTKSBYPEHGJWB6YH4VISE4CLLEGWC2ZUQ6WXYOLFM",
+    "code": "LIBERATOR",
+    "name": "LIBERATOR"
+  },
+  {
+    "contract": "CBEM2CAIYLM3HBOPU5HLQL7V5BUAKM3N77DYQKX4FNHTQLQUUD2ZFBOX",
+    "code": "LIBRE",
+    "name": "LIBRE"
+  },
+  {
+    "contract": "CCYFFNXEMQZG4TGMYDRQYRWROCSJCDJBZI6JC6BGBTYB2SJAQKQICON5",
+    "code": "LibreVault",
+    "name": "LibreVault"
+  },
+  {
+    "contract": "CBYFV4W2LTMXYZ3XWFX5BK2BY255DU2DSXNAE4FJ5A5VYUWGIBJDOIGG",
+    "code": "NGNC",
+    "name": "NGNC"
+  },
+  {
+    "contract": "CDAHEWKJHBOBREILPDRLCHIGTPV52UVQZWYBFVXQZAPSZVPP6BPOH4WH",
+    "code": "NLT",
+    "name": "NLT"
+  },
+  {
+    "contract": "CAPIOPSODD5QP4SJNIS4ASUWML4LH7ZEKTAPBJYZSMKXCATEKDZFKLHK",
+    "code": "NUNA",
+    "name": "NUNA"
+  },
+  {
+    "contract": "CBZPEXQLJCGUYTAQRQ4FGCXUV5O4TZER5WSOMCGNDNIIO4EJ4FU5GQNZ",
+    "code": "oUSD",
+    "name": "oUSD"
+  },
+  {
+    "contract": "CBT2U7I6J7LSEEJQQXBEOSRXNRNLH5UQPWG74Q36J3RHNQOQ5KEFCJ4Y",
+    "code": "POYE",
+    "name": "POYE"
+  },
+  {
+    "contract": "CCCWT5Q6RZJWEUEICQXST5UX46MFTQNZRXBIEMP6LIPV7PJYAPH4CR3W",
+    "code": "QBTC",
+    "name": "QBTC"
+  },
+  {
+    "contract": "CDOIEBW5LN7T7PSFY6ADLPIDF52PFRX57WIYWJ637PCZ7ZFDDN5T6NCH",
+    "code": "SDEXEX",
+    "name": "SDEXEX"
+  },
+  {
+    "contract": "CCKCKCPHYVXQD4NECBFJTFSCU2AMSJGCNG4O6K4JVRE2BLPR7WNDBQIQ",
+    "code": "SHX",
+    "name": "SHX"
+  },
+  {
+    "contract": "CD6IN4UFNPDX35H7YB53XAA2XE6S2UPXL7AZL6DSFZFNNZSLE7FFSIVP",
+    "code": "SNOOZE",
+    "name": "SNOOZE"
+  },
+  {
+    "contract": "CCN2LGXV7U3LLRQNAXGPQ7XK2JT2PGMUFOLDZTSLFCKNUXE3QVYEC3PF",
+    "code": "STK",
+    "name": "STK"
+  },
+  {
+    "contract": "CDDL6HGNYGVRCQB37DDFTIFYMGTX36AQMCXI6U3NOAO2BBZDNGKMGQSY",
+    "code": "STROOPY",
+    "name": "STROOPY"
+  },
+  {
+    "contract": "CCEBHXWHT2UX6QQ7WZOV6KRGUILICPRFOZD2CEAHZ5AYX7EFW3RG6I2F",
+    "code": "USD",
+    "name": "USD"
+  },
+  {
+    "contract": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+    "code": "USDC",
+    "name": "USDC"
+  },
+  {
+    "contract": "CB226ZOEYXTBPD3QEGABTJYSKZVBP2PASEISLG3SBMTN5CE4QZUVZ3CE",
+    "code": "USDGLO",
+    "name": "USDGLO"
+  },
+  {
+    "contract": "CDIKURWHYS4FFTR5KOQK6MBFZA2K3E26WGBQI6PXBYWZ4XIOPJHDFJKP",
+    "code": "USDx",
+    "name": "USDx"
+  },
+  {
+    "contract": "CB3YA656OYIHU57657I5KGSBRHE5I3OZU4VFC22PYAOANFZHEWNYGAGP",
+    "code": "USDY",
+    "name": "USDY"
+  },
+  {
+    "contract": "CBLV4ATSIWU67CFSQU2NVRKINQIKUZ2ODSZBUJTJ43VJVRSBTZYOPNUR",
+    "code": "USTRY",
+    "name": "USTRY"
+  },
+  {
+    "contract": "CAESLMGW5LYTIEJI7FJHK6SFSWRELLNVX5Q4WR4UZEALMTRWQDBKDPAG",
+    "code": "VELO",
+    "name": "VELO"
+  },
+  {
+    "contract": "CB3AA32WCAM5OHGV54QMV7AH3MSZ5HNYZOG4EV4FHTVEX5L6PIAQWWNK",
+    "code": "VNC",
+    "name": "VNC"
+  },
+  {
+    "contract": "CC5UXAGZOU27OQBKBYTQMES3NVO6EV6FCMWSNPPHAPIS6S24ENM3C24A",
+    "code": "XAU",
+    "name": "XAU"
+  },
+  {
+    "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+    "code": "XLM",
+    "name": "Stellar Lumens"
+  },
+  {
+    "contract": "CBLLEW7HD2RWATVSMLAGWM4G3WCHSHDJ25ALP4DI6LULV5TU35N2CIZA",
+    "code": "XRF",
+    "name": "XRF"
+  },
+  {
+    "contract": "CAAV3AE3VKD2P4TY7LWTQMMJHIJ4WOCZ5ANCIJPC3NRSERKVXNHBU2W7",
+    "code": "XRP",
+    "name": "XRP"
+  },
+  {
+    "contract": "CBPMFYWP4FFV7PQUYHXJZBXS75EHR6FXYSYEZWH2UM7AUYSKI2Z3PTCG",
+    "code": "XRP",
+    "name": "XRP"
+  },
+  {
+    "contract": "CDCKFBZYF2AQCSM3JOF2ZM27O3Y6AJAI4OTCQKAFNZ3FHBYUTFOKICIY",
+    "code": "XTAR",
+    "name": "XTAR"
+  },
+  {
+    "contract": "CBBJTE34KZHJACB2A6OXCRTDDLX4LI7GKYYD6XYJSGMX46BLNAG752HS",
+    "code": "XXA",
+    "name": "XXA"
+  },
+  {
+    "contract": "CCBJNX4B23ZDXEE3KRS2IAQJSLNQY4ZJ24K44BI7FYYIF5ZAZMRYPRRD",
+    "code": "YAWN",
+    "name": "YAWN"
+  },
+  {
+    "contract": "CBRP2VD3CZLEQIQZ4JMBXGA5AC2U6JE26YU5CCIOICIZCVWPGBO2QRUB",
+    "code": "YBX",
+    "name": "YBX"
+  },
+  {
+    "contract": "CBH5FAS7EPGM4KGSUHTGMJYGNAMUUMFDXLFD7CWDWWG4JLSXBCCPAXTZ",
+    "code": "yQBTC",
+    "name": "yQBTC"
+  },
+  {
+    "contract": "CBZVSNVB55ANF24QVJL2K5QCLOAB6XITGTGXYEAF6NPTXYKEJUYQOHFC",
+    "code": "yXLM",
+    "name": "yXLM"
+  }
+]
