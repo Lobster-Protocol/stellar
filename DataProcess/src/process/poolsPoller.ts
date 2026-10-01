@@ -97,13 +97,10 @@ export async function fetchAllPoolsOnce(): Promise<void> {
   console.log(`[poolsPoller] Phoenix pairs: ${phoenix.length}`);
   console.log(`[poolsPoller] Aquarius pairs: ${aquarius.length}`);
 
-  // Example: print first few for visibility
   const preview = (arr: TokenPair[]) => arr.slice(0, 5).map(p => `${p.token0.substring(0,6)}...-${p.token1.substring(0,6)}...`).join(', ');
   console.log(`[poolsPoller] Soroswap sample: ${preview(soro)}`);
   console.log(`[poolsPoller] Phoenix sample: ${preview(phoenix)}`);
   console.log(`[poolsPoller] Aquarius sample: ${preview(aquarius)}`);
-
-  // TODO: persist lists to S3/db if desired
 }
 
 function hours(n: number): number {
@@ -120,7 +117,6 @@ async function main(): Promise<void> {
   });
 
 
-  // Immediate run
   await fetchAllPoolsOnce();
 
   const intervalMs = Number(process.env.POOL_POLL_INTERVAL_MS || hours(12));
@@ -130,7 +126,6 @@ async function main(): Promise<void> {
   }, intervalMs);
 }
 
-// Run if launched directly
 if (require.main === module) {
   main().catch((e) => {
     console.error('[poolsPoller] fatal', e);

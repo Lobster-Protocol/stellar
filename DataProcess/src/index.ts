@@ -1,13 +1,5 @@
-/**
- * DataProcess - Lobster Protocol Analytics Entry Point
- * 
- * Main exports for the analytics and data processing library
- */
-
-// Core AMM formulas
 export { AMMFormulas } from './formulas/amm';
 
-// Types
 export type {
   AMMConfig,
   PoolReserves,
@@ -25,7 +17,6 @@ export type {
   ConcentratedLiquidityResult,
 } from './types';
 
-// Processing functions
 export {
   processPoolData,
   queryPoolData,
@@ -34,7 +25,6 @@ export {
   type PoolData,
 } from './process/querySwaps';
 
-// Constants
 export {
   ZERO,
   ONE,

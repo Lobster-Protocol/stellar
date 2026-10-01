@@ -10,7 +10,6 @@ import {
   QUERY_NEW_PAIR_AQUARIUS_ENTITIES,
 } from './types/queries';
 
-// Pool repertory imports
 const NETWORK = process.env.NETWORK || 'testnet';
 const isTestnet = NETWORK === 'testnet';
 
@@ -48,8 +47,8 @@ const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT || 'http://127.0.0.1:9000',
   forcePathStyle: true,
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY || 'lobster',
-    secretAccessKey: process.env.S3_SECRET_KEY || 'lobster-secret-123'
+    accessKeyId: process.env.S3_ACCESS_KEY || '',
+    secretAccessKey: process.env.S3_SECRET_KEY || ''
   }
 });
 
@@ -89,26 +88,6 @@ app.post('/process', (req: any, res: any) => {
   })();
   res.status(202).json({ accepted: true });
 });
-
-// POST /process/sync { token0, token1, protocol }
-// Runs processing synchronously; helpful for debugging API vs script behavior
-// app.post('/process/sync', async (req: any, res: any) => {
-//   try {
-//     const { token0, token1, protocol } = req.body || {};
-//     if (!token0 || !token1 || !protocol) return res.status(400).json({ error: 'token0, token1 and protocol required' });
-//     const proto = String(protocol).toLowerCase();
-//     const runner =
-//       proto === 'soroswap' ? processSoroswap :
-//       proto === 'phoenix' ? processPhoenix :
-//       proto === 'aquarius' ? processAquarius : null;
-//     if (!runner) return res.status(400).json({ error: 'protocol must be one of: soroswap, phoenix, aquarius' });
-//     await runner(token0, token1);
-//     res.json({ ok: true });
-//   } catch (err: any) {
-//     console.error('process/sync failed', err);
-//     res.status(500).json({ error: err?.message || 'processing failed' });
-//   }
-// });
 
 async function getLatestMetrics(token0: string, token1: string, protocol: string) {
   const key = `${protocol}/${token0}_${token1}.latest.json.gz`;
@@ -167,7 +146,6 @@ app.get('/data/last', async (req: any, res: any) => {
   }
 });
 
-// Helper function to fetch pairs from SubQuery
 async function fetchPairsFromQuery(query: string, rootKey: string): Promise<Array<{ token0: string; token1: string }>> {
   const BATCH_SIZE = 1000;
   let offset = 0;
@@ -217,7 +195,6 @@ app.post('/processAll', async (req: any, res: any) => {
     return res.status(400).json({ error: 'source must be "query" or "repertory"' });
   }
 
-  // Return immediately and process in background
   res.status(202).json({ 
     accepted: true, 
     source,
@@ -230,7 +207,6 @@ app.post('/processAll', async (req: any, res: any) => {
       let allPairs: Array<{ token0: string; token1: string; protocol: string }> = [];
 
       if (source === 'query') {
-        // Option 1: Query from SubQuery
         console.log('[processAll] Fetching pairs from SubQuery...');
         const [soroswapPairs, phoenixPairs, aquariusPairs] = await Promise.all([
           fetchPairsFromQuery(QUERY_NEW_PAIR_EVENT_ENTITIES, 'newPairEventEntities')
@@ -249,7 +225,6 @@ app.post('/processAll', async (req: any, res: any) => {
 
         console.log(`[processAll] Fetched ${soroswapPairs.length} Soroswap, ${phoenixPairs.length} Phoenix, ${aquariusPairs.length} Aquarius pairs`);
       } else {
-        // Option 2: Use pool_repertory files
         console.log('[processAll] Loading pairs from pool_repertory...');
         allPairs = [
           ...soroswapPools.map(p => ({ token0: p.token_a, token1: p.token_b, protocol: 'soroswap' })),
@@ -262,7 +237,6 @@ app.post('/processAll', async (req: any, res: any) => {
       console.log(`[processAll] Total pairs to process: ${allPairs.length}`);
       console.log(`[processAll] Processing with concurrency: ${concurrency}`);
 
-      // Process pairs in batches with concurrency limit
       const results = {
         success: 0,
         failed: 0,
@@ -272,7 +246,6 @@ app.post('/processAll', async (req: any, res: any) => {
       let connectionErrorDetected = false;
 
       for (let i = 0; i < allPairs.length; i += concurrency) {
-        // Stop processing if we detect a connection error
         if (connectionErrorDetected) {
           console.log(`[processAll] Stopping processing - SubQuery connection issue detected`);
           break;
@@ -283,29 +256,27 @@ app.post('/processAll', async (req: any, res: any) => {
             processPoolData(token0, token1, protocol)
               .then(() => {
                 results.success++;
-                console.log(`[processAll] ✓ Processed ${token0.substring(0, 8)}.../${token1.substring(0, 8)}... (${protocol})`);
+                console.log(`[processAll] Processed ${token0.substring(0, 8)}.../${token1.substring(0, 8)}... (${protocol})`);
               })
               .catch((err: any) => {
                 const errorMsg = err?.message || String(err);
                 
-                // Check if it's a "no data" error - handle gracefully
+                // A pool with no swaps in the window is skipped, not counted as a failure
                 if (errorMsg.includes('No swap events found')) {
-                  // Don't count as failed, just skip silently with a brief message
-                  console.log(`[processAll] ⊘ Skipped ${token0.substring(0, 8)}.../${token1.substring(0, 8)}... (${protocol}): No data available`);
+                  console.log(`[processAll] Skipped ${token0.substring(0, 8)}.../${token1.substring(0, 8)}... (${protocol}): No data available`);
                 } else if (errorMsg.includes('SubQuery connection failed') || errorMsg.includes('Cannot connect to SubQuery')) {
-                  // Connection error - log once and mark to stop processing
+                  // Every later pair would fail the same way, so log once and stop the run
                   if (!connectionErrorDetected) {
-                    console.error(`[processAll] ✗ Connection error: ${errorMsg}`);
+                    console.error(`[processAll] Connection error: ${errorMsg}`);
                     console.error(`[processAll] SubQuery endpoint is not reachable. Please check your SUBQUERY_URL setting.`);
                     connectionErrorDetected = true;
                   }
                   results.failed++;
                   results.errors.push({ token0, token1, protocol, error: 'SubQuery connection failed' });
                 } else {
-                  // Real error - count as failed
                   results.failed++;
                   results.errors.push({ token0, token1, protocol, error: errorMsg });
-                  console.error(`[processAll] ✗ Failed ${token0.substring(0, 8)}.../${token1.substring(0, 8)}... (${protocol}):`, errorMsg);
+                  console.error(`[processAll] Failed ${token0.substring(0, 8)}.../${token1.substring(0, 8)}... (${protocol}):`, errorMsg);
                 }
               })
           )
@@ -338,7 +309,6 @@ app.get('/health', async (_req, res) => {
     },
   };
 
-  // Check SubQuery connection
   try {
     const subqueryUrl = process.env.SUBQUERY_URL || 'http://localhost:3000';
     const testQuery = '{ __typename }';
@@ -346,7 +316,7 @@ app.get('/health', async (_req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: testQuery }),
-      signal: AbortSignal.timeout(5000), // 5 second timeout
+      signal: AbortSignal.timeout(5000),
     });
     
     if (response.ok) {
@@ -371,7 +341,6 @@ app.get('/health', async (_req, res) => {
     health.status = 'degraded';
   }
 
-  // Check S3/MinIO connection
   try {
     const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
     await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
@@ -390,7 +359,6 @@ app.get('/health', async (_req, res) => {
     health.status = 'degraded';
   }
 
-  // Return appropriate HTTP status
   const httpStatus = health.status === 'ok' ? 200 : 503;
   res.status(httpStatus).json(health);
 });
@@ -412,7 +380,6 @@ app.get('/health/ready', async (_req, res) => {
     s3: false,
   };
 
-  // Check SubQuery
   try {
     const subqueryUrl = process.env.SUBQUERY_URL || 'http://localhost:3000';
     const response = await fetch(subqueryUrl, {
@@ -426,7 +393,6 @@ app.get('/health/ready', async (_req, res) => {
     checks.subquery = false;
   }
 
-  // Check S3
   try {
     const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
     await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
@@ -449,7 +415,4 @@ const server = app.listen(PORT, () => {
   console.log(`Live check: http://localhost:${PORT}/health/live`);
   console.log(`Ready check: http://localhost:${PORT}/health/ready`);
 });
-
-// // Ensure the event loop stays active even if something releases server refs
-// try { process.stdin.resume(); } catch {}
 

@@ -38,7 +38,6 @@ export async function graphqlRequest<T = unknown>(
       throw new Error('globalThis.fetch not found. Use Node 18+ or provide a fetch polyfill.');
     }
 
-    //console.log(JSON.stringify({ query, variables }, null, 2));
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -65,17 +64,12 @@ export async function graphqlRequest<T = unknown>(
       throw new Error('GraphQL response has no data');
     }
 
-    //console.log(JSON.stringify(payload.data, null, 2));
-
     return payload.data;
   } finally {
     if (timeoutId && g?.clearTimeout) g.clearTimeout(timeoutId);
   }
 }
 
-/**
- * Convenience function tailored for SubQuery calls.
- */
 export async function querySubquery<T = unknown>(
   query: string,
   variables?: Record<string, unknown>,
@@ -83,13 +77,3 @@ export async function querySubquery<T = unknown>(
 ): Promise<T> {
   return graphqlRequest<T>(query, variables, opts);
 }
-
-
-
-
-// {
-//   "query": "query  ($block: String!) { swapAquariusEntities(filter: { block: { equalTo: $block } }, first: 5) { nodes { id contract token0 token1 orderToken orderAmount amount0 amount1 reserveBefore0 reserveBefore1 reserveAfter0 reserveAfter1 sender block timestamp } } }",
-//     "variables": {
-//     "block": "313792"
-//   }
-// }

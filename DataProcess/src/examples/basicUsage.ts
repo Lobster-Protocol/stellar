@@ -1,16 +1,6 @@
-/**
- * Basic usage examples for Lobster Protocol Analytical Formulas
- * 
- * These examples demonstrate how to use the AMMFormulas class to calculate
- * various metrics for AMM pools.
- */
-
 import { Decimal } from 'decimal.js';
 import { AMMFormulas } from '../formulas/amm';
 
-/**
- * Example 1: Calculate spot price
- */
 export function spotPriceExample(): void {
   console.log('=== Spot Price Example ===');
   
@@ -25,9 +15,6 @@ export function spotPriceExample(): void {
   // Output: Spot Price: 1 USDT/USDC
 }
 
-/**
- * Example 2: Calculate normalized TVL
- */
 export function normalizedTVLExample(): void {
   console.log('\n=== Normalized TVL Example ===');
   
@@ -41,9 +28,6 @@ export function normalizedTVLExample(): void {
   // Output: Normalized TVL: 2000000
 }
 
-/**
- * Example 3: Calculate average price during a swap
- */
 export function averagePriceExample(): void {
   console.log('\n=== Average Price Example ===');
   
@@ -59,9 +43,6 @@ export function averagePriceExample(): void {
   // Output: Average Price: ~1.0488 (geometric mean)
 }
 
-/**
- * Example 4: Calculate normalized volume
- */
 export function normalizedVolumeExample(): void {
   console.log('\n=== Normalized Volume Example ===');
   
@@ -79,9 +60,6 @@ export function normalizedVolumeExample(): void {
   console.log(`Normalized Volume: ${normalizedVolume.toString()}`);
 }
 
-/**
- * Example 5: Calculate captured fees
- */
 export function capturedFeesExample(): void {
   console.log('\n=== Captured Fees Example ===');
   
@@ -99,9 +77,6 @@ export function capturedFeesExample(): void {
   console.log(`Captured Fees: ${capturedFees.toString()}`);
 }
 
-/**
- * Example 6: Calculate profit from fees
- */
 export function profitExample(): void {
   console.log('\n=== Profit Example ===');
   
@@ -123,9 +98,6 @@ export function profitExample(): void {
   // Output: Cumulative Profit: 0.000045 (0.0045%)
 }
 
-/**
- * Example 7: Calculate impermanent loss
- */
 export function impermanentLossExample(): void {
   console.log('\n=== Impermanent Loss Example ===');
   
@@ -141,9 +113,6 @@ export function impermanentLossExample(): void {
   // Output: Percent Loss: ~5.72% (for 2x price change)
 }
 
-/**
- * Example 8: Calculate PnL (Profit and Loss)
- */
 export function pnlExample(): void {
   console.log('\n=== PnL Example ===');
   
@@ -159,9 +128,6 @@ export function pnlExample(): void {
   // Output: Net PnL: ~4.5% (after accounting for impermanent loss)
 }
 
-/**
- * Example 9: Calculate APR
- */
 export function aprExample(): void {
   console.log('\n=== APR Example ===');
   
@@ -177,9 +143,6 @@ export function aprExample(): void {
   // Output: APR: 60%
 }
 
-/**
- * Example 10: Calculate volatility metrics
- */
 export function volatilityExample(): void {
   console.log('\n=== Volatility Example ===');
   
@@ -207,9 +170,6 @@ export function volatilityExample(): void {
   console.log(`Average Volatility: ${avgVolatility.toString()}`);
 }
 
-/**
- * Run all examples
- */
 export function runAllExamples(): void {
   spotPriceExample();
   normalizedTVLExample();
@@ -223,7 +183,6 @@ export function runAllExamples(): void {
   volatilityExample();
 }
 
-// If run directly
 if (require.main === module) {
   runAllExamples();
 }

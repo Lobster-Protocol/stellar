@@ -3,18 +3,9 @@ import { ZERO, ONE, FEE_DENOMINATOR, MIN_LIQUIDITY } from '../constants';
 import Decimal from "decimal.js";
 
 /**
- * Core AMM (Automated Market Maker) formulas for Lobster Protocol
- * Implements constant product formula (x * y = k) with fees
+ * Pool analytics for constant product (x * y = k) AMMs, computed from swap reserves and amounts
  */
 export class AMMFormulas {
-  //private config: AMMConfig;
-
-  // constructor(config: AMMConfig) {
-  //   this.config = config;
-  // }
-
-  ///////////////////////////////////////////1. 🏊 Basic Pool Metrics /////////////////////////////////
-  
   /**
    * Calculate spot price (price without considering slippage)
    * Formula: price = reserveB / reserveA
@@ -32,7 +23,7 @@ export class AMMFormulas {
    * @param reserveToken0 - reserve of Token0
    * @param reserveToken1 - reserve of Token1
    * @returns normalized TVL in Token0 units
-   *  Formula: normalizedTVL(t)=reserveToken0(t)+P(t)⋅reserveToken1(t)
+   * Formula: normalizedTVL(t) = reserveToken0(t) + P(t) × reserveToken1(t)
    */
   public getNormalizedTVL(reserveToken0: Decimal, reserveToken1: Decimal): Decimal {
     if (reserveToken1.lte(ZERO)) {
@@ -42,7 +33,6 @@ export class AMMFormulas {
     // Price of Token1 in terms of Token0
     const price = reserveToken0.div(reserveToken1);
 
-    // Normalized TVL
     const normalizedTVL = reserveToken0.add(price.mul(reserveToken1));
 
     return normalizedTVL;
@@ -55,7 +45,7 @@ export class AMMFormulas {
    * @param blockPast - block number at time (t - s)
    * @returns annualization factor
    * 
-   * annualizationFactor=avgTimeStellarBlock×(block(t)−block(t−s))31536000​
+   * Formula: annualizationFactor = 31536000 / (avgTimeStellarBlock × (block(t) - block(t - s)))
    */
   public getAnnualizationFactor(
     avgTimeStellarBlock: Decimal,
@@ -88,11 +78,9 @@ export class AMMFormulas {
     return reserveToken0.div(normalizedTVL);
   }
 
-  ///////////////////////////////////////////2. 💱 Swap Metrics /////////////////////////////////
-
   /**
    * Calculate average price during a swap
-   * Formula: P_avg(t) = √(P(t) × P(t − 1))
+   * Formula: P_avg(t) = √(P(t) × P(t - 1))
    * Geometric mean price during the swap
    * 
    * @param currentPrice - Price at time t: P(t)
@@ -104,7 +92,7 @@ export class AMMFormulas {
       throw new Error('Prices must be positive calculateAveragePrice');
     }
 
-    // P_avg(t) = √(P(t) × P(t − 1))
+    // P_avg(t) = √(P(t) × P(t - 1))
     const product = currentPrice.mul(previousPrice);
     return product.sqrt();
   }
@@ -210,8 +198,6 @@ export class AMMFormulas {
     return sumVolumes.div(s.mul(normalizedTVLAtT));
   }
 
-  //////////////////////////////3. 💰 Profit & Loss Metrics///////////////////////////
-
   /**
    * Calculate cumulative profit from fees over a time period [t0, t]
    * Formula: profit(t0, t) = Σ_{n=t0}^{t} ( feeCaptured(n) / normalizedTVL(n) )
@@ -315,7 +301,7 @@ export class AMMFormulas {
 
   /**
    * Calculate Profit and Loss (PnL) accounting for impermanent loss
-   * Formula: PnL(t0, t) = (1 + profit(t0, t)) × (1 − percentLoss(t0, t)) − 1
+   * Formula: PnL(t0, t) = (1 + profit(t0, t)) × (1 - percentLoss(t0, t)) - 1
    * 
    * @param cumulativeProfit - profit(t0, t), cumulative profit fraction from fees
    * @param percentLoss - percentLoss(t0, t), impermanent loss fraction (0..1)
@@ -337,9 +323,9 @@ export class AMMFormulas {
 
   /**
    * Calculate Annual Percentage Rate (APR)
-   * Formula: APR(t) = PnL(t − s, t) × annualizationFactor
+   * Formula: APR(t) = PnL(t - s, t) × annualizationFactor
    * 
-   * @param pnlWindow - PnL over the last window [t − s, t]
+   * @param pnlWindow - PnL over the last window [t - s, t]
    * @param annualizationFactor - Factor to annualize period returns (e.g., 31536000/(avgBlockTime*blocksInWindow))
    * @returns APR as a fraction
    */
@@ -357,14 +343,12 @@ export class AMMFormulas {
     return pnlWindow.mul(annualizationFactor);
   }
 
-  ////////////////////////////////////////////////////4. ⚖️ Risk Ratio Calculation///////////////////////////
-
   /**
    * Calculate period-over-period return rate r(t)
-   * Formula: r(t) = [PnL(t, t0) − PnL(t − 1, t0)] / PnL(t − 1, t0)
+   * Formula: r(t) = [PnL(t, t0) - PnL(t - 1, t0)] / PnL(t - 1, t0)
    * 
    * @param pnlAtT - PnL(t, t0)
-   * @param pnlAtTMinus1 - PnL(t − 1, t0)
+   * @param pnlAtTMinus1 - PnL(t - 1, t0)
    * @returns Period-over-period return rate
    */
   public calculatePeriodReturn(
@@ -383,7 +367,7 @@ export class AMMFormulas {
 
   /**
    * Calculate average return over a smoothing period
-   * Formula: r̄ = (1 / s) × Σ_{n=t−s+1}^{t} r(n)
+   * Formula: r̄ = (1 / s) × Σ_{n=t-s+1}^{t} r(n)
    * 
    * @param returnsWindow - Array of last s period returns r(n) ordered oldest..newest
    * @param s - Window size (must equal returnsWindow.length)
@@ -425,7 +409,7 @@ export class AMMFormulas {
 
   /**
    * Calculate standard deviation of returns over a smoothing period
-   * Formula: σ_r = sqrt( (1 / s) × Σ_{n=t−s+1}^{t} ( r(n) − r̄ )^2 )
+   * Formula: σ_r = sqrt( (1 / s) × Σ_{n=t-s+1}^{t} ( r(n) - r̄ )^2 )
    * 
    * @param returnsWindow - Array of last s period returns r(n) ordered oldest..newest
    * @param s - Window size (must equal returnsWindow.length)
@@ -501,11 +485,9 @@ export class AMMFormulas {
     return averageReturn.mul(scale).div(stdDevReturns);
   }
 
-  /////////////////////////////////////////////5. 📈 Event Analysis///////////////////////////
-
   /**
    * Calculate instantaneous price volatility for an individual swap
-   * Formula: vol(t) = | ln( P(t) / P(t − 1) ) |
+   * Formula: vol(t) = | ln( P(t) / P(t - 1) ) |
    */
   public calculateInstantaneousVolatility(currentPrice: Decimal, previousPrice: Decimal): Decimal {
     if (currentPrice.lte(ZERO) || previousPrice.lte(ZERO)) {
@@ -516,7 +498,7 @@ export class AMMFormulas {
 
   /**
    * Calculate average volatility over a smoothing period
-   * Formula: V̄(t) = (1 / s) × Σ_{n=t−s+1}^{t} vol(n)
+   * Formula: V̄(t) = (1 / s) × Σ_{n=t-s+1}^{t} vol(n)
    * 
    * @param volWindow - Array of last s instantaneous vol values ordered oldest..newest
    * @param s - Window size (must equal volWindow.length)
@@ -548,7 +530,7 @@ export class AMMFormulas {
 
   /**
    * Calculate variance of price volatility over a smoothing period
-   * Formula: V_vol(t) = (1 / s) × Σ_{n=t−s+1}^{t} [ vol(n) − V̄(t) ]^2
+   * Formula: V_vol(t) = (1 / s) × Σ_{n=t-s+1}^{t} [ vol(n) - V̄(t) ]^2
    * 
    * @param volWindow - Array of last s instantaneous vol values ordered oldest..newest
    * @param s - Window size (must equal volWindow.length)
@@ -597,7 +579,7 @@ export class AMMFormulas {
 
   /**
    * Calculate average normalized TVL over a smoothing period
-   * Formula: TVL̄(t) = (1 / s) × Σ_{n=t−s+1}^{t} normalizedTVL(n)
+   * Formula: TVL̄(t) = (1 / s) × Σ_{n=t-s+1}^{t} normalizedTVL(n)
    */
   public calculateAverageTVL(normalizedTVLWindow: Decimal[], s: Decimal): Decimal {
     if (s.lte(ZERO)) {
@@ -624,7 +606,7 @@ export class AMMFormulas {
 
   /**
    * Calculate TVL variance over a smoothing period
-   * Formula: V_tvl(t) = (1 / s) × Σ_{n=t−s+1}^{t} [ normalizedTVL(n) − TVL̄(t) ]^2
+   * Formula: V_tvl(t) = (1 / s) × Σ_{n=t-s+1}^{t} [ normalizedTVL(n) - TVL̄(t) ]^2
    */
   public calculateTVLVariance(
     normalizedTVLWindow: Decimal[],
@@ -666,11 +648,9 @@ export class AMMFormulas {
     return variances;
   }
 
-  /////////////////////////////////////////////////6. ⚡ Efficiency Metric (0-100%) /////////////////////////////////
-
   /**
    * Calculate pool efficiency metric (0-100%)
-   * Formula: efficiency(t) = 100 × (1 − e^{−10×turnoverFactor(t)}) × min(globalToken0Exposure(t), 1 − globalToken0Exposure(t)) × 2
+   * Formula: efficiency(t) = 100 × (1 - e^{-10×turnoverFactor(t)}) × min(globalToken0Exposure(t), 1 - globalToken0Exposure(t)) × 2
    * 
    * @param turnoverFactor - turnoverFactor(t), non-negative
    * @param globalToken0Exposure - globalToken0Exposure(t) in [0, 1]
@@ -691,11 +671,9 @@ export class AMMFormulas {
     return Decimal.max(ZERO, Decimal.min(new Decimal(100), efficiency));
   }
 
-  //////////////////////////////////////7. 🎯 Stability Metric (0-100%)///////////////////////////////
-
   /**
    * Calculate stability metric (0-100%) combining price and depth stability
-   * Formula: stability(t) = 100 × exp(−10 × V_vol(t) / V̄(t)) × exp(−10 × V_tvl(t) / TVL̄(t))
+   * Formula: stability(t) = 100 × exp(-10 × V_vol(t) / V̄(t)) × exp(-10 × V_tvl(t) / TVL̄(t))
    * 
    * @param volatilityVariance - V_vol(t)
    * @param averageVolatility - V̄(t) (must be > 0)
@@ -729,11 +707,9 @@ export class AMMFormulas {
     return Decimal.max(ZERO, Decimal.min(new Decimal(100), stability));
   }
 
-  /////////////////////////////////////8. 💎 Profitability Metric (0-100%)///////////////////////////////
-
   /**
    * Calculate profitability metric (0-100%) using Sharpe ratio normalization
-   * Formula: profitability(t) = 100 × 1 / (1 + e^{−10 × sharpe(t)})
+   * Formula: profitability(t) = 100 × 1 / (1 + e^{-10 × sharpe(t)})
    * 50% corresponds to Sharpe = 0
    */
   public calculateProfitability(sharpeRatio: Decimal): Decimal {
@@ -743,8 +719,6 @@ export class AMMFormulas {
     const sigmoid = ONE.div(ONE.add(new Decimal(-10).mul(sharpeRatio).exp()));
     return new Decimal(100).mul(sigmoid);
   }
-
-  ////////////////////////////////////////9. ⚖️ Condition d'Arbitrage///////////////////////////////
 
   /**
    * Delta APR between target and current pools
@@ -758,7 +732,7 @@ export class AMMFormulas {
 
   /**
    * Compute recovery days to cover arbitrage fee using APR differential
-   * Formula: recoveryDays = (365 × arbitrageFee) / (userPositionToken0 × (APR_target − APR_current))
+   * Formula: recoveryDays = (365 × arbitrageFee) / (userPositionToken0 × (APR_target - APR_current))
    * All rates should be provided as fractions (e.g., 0.12 for 12%).
    */
   public calculateArbitrageRecoveryDays(

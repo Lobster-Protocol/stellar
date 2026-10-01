@@ -1,5 +1,4 @@
-// Auto-generated query constants for SubQuery entities defined in Query/schema.graphql
-// Each query supports standard SubQuery args: first, offset, orderBy, orderDirection, filter
+// GraphQL queries for the SubQuery entities defined in Query/schema.graphql
 
 export const QUERY_TRANSFERS = `
   query ($first: Int, $offset: Int, $orderBy: [TransfersOrderBy!], $filter: TransferFilter) {

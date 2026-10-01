@@ -8,13 +8,7 @@ import {
 } from '../types';
 import { ZERO, ONE, HUNDRED, MAX_FEE, MIN_FEE } from '../constants';
 
-/**
- * Validation utilities for AMM calculations
- */
 export class ValidationUtils {
-  /**
-   * Validate pool reserves
-   */
   public static validatePoolReserves(reserves: PoolReserves): void {
     if (!reserves.reserveA || !reserves.reserveB || !reserves.totalSupply) {
       throw new Error('Pool reserves must be defined');
@@ -29,9 +23,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate swap parameters
-   */
   public static validateSwapParams(params: SwapParams): void {
     if (!params.amountIn || !params.tokenIn || !params.tokenOut) {
       throw new Error('Swap parameters must be defined');
@@ -54,9 +45,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate liquidity parameters
-   */
   public static validateLiquidityParams(params: LiquidityParams): void {
     if (!params.amountA || !params.amountB) {
       throw new Error('Liquidity parameters must be defined');
@@ -71,9 +59,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate AMM configuration
-   */
   public static validateAMMConfig(config: AMMConfig): void {
     if (!config.feeRate || !config.protocolFeeRate || !config.maxSlippage) {
       throw new Error('AMM configuration must be defined');
@@ -96,9 +81,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate curve parameters
-   */
   public static validateCurveParams(params: CurveParams): void {
     if (!params.amplification || !params.gamma || !params.alpha) {
       throw new Error('Curve parameters must be defined');
@@ -117,9 +99,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate decimal precision
-   */
   public static validatePrecision(value: Decimal, maxDecimals: number = 18): void {
     const decimalPlaces = value.decimalPlaces();
     if (decimalPlaces > maxDecimals) {
@@ -127,9 +106,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate price range
-   */
   public static validatePriceRange(price: Decimal, minPrice?: Decimal, maxPrice?: Decimal): void {
     if (price.lt(ZERO)) {
       throw new Error('Price must be non-negative');
@@ -144,9 +120,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate tick range
-   */
   public static validateTickRange(tickLower: number, tickUpper: number): void {
     if (tickLower >= tickUpper) {
       throw new Error('tickLower must be less than tickUpper');
@@ -157,36 +130,24 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate slippage
-   */
   public static validateSlippage(slippage: Decimal): void {
     if (slippage.lt(ZERO) || slippage.gt(HUNDRED)) {
       throw new Error('Slippage must be between 0 and 100');
     }
   }
 
-  /**
-   * Validate fee rate
-   */
   public static validateFeeRate(feeRate: Decimal): void {
     if (feeRate.lt(MIN_FEE) || feeRate.gt(MAX_FEE)) {
       throw new Error(`Fee rate must be between ${MIN_FEE} and ${MAX_FEE}`);
     }
   }
 
-  /**
-   * Validate liquidity amount
-   */
   public static validateLiquidityAmount(liquidity: Decimal): void {
     if (liquidity.lt(ZERO)) {
       throw new Error('Liquidity must be non-negative');
     }
   }
 
-  /**
-   * Validate token addresses
-   */
   public static validateTokenAddress(address: string): void {
     if (!address || typeof address !== 'string') {
       throw new Error('Token address must be a non-empty string');
@@ -197,9 +158,6 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate array of values
-   */
   public static validateArray<T>(array: T[], minLength: number = 1, maxLength?: number): void {
     if (!Array.isArray(array)) {
       throw new Error('Value must be an array');
@@ -214,45 +172,30 @@ export class ValidationUtils {
     }
   }
 
-  /**
-   * Validate numeric range
-   */
   public static validateRange(value: Decimal, min: Decimal, max: Decimal): void {
     if (value.lt(min) || value.gt(max)) {
       throw new Error(`Value ${value} must be between ${min} and ${max}`);
     }
   }
 
-  /**
-   * Validate positive number
-   */
   public static validatePositive(value: Decimal, name: string = 'Value'): void {
     if (value.lte(ZERO)) {
       throw new Error(`${name} must be positive`);
     }
   }
 
-  /**
-   * Validate non-negative number
-   */
   public static validateNonNegative(value: Decimal, name: string = 'Value'): void {
     if (value.lt(ZERO)) {
       throw new Error(`${name} must be non-negative`);
     }
   }
 
-  /**
-   * Validate percentage
-   */
   public static validatePercentage(value: Decimal, name: string = 'Percentage'): void {
     if (value.lt(ZERO) || value.gt(HUNDRED)) {
       throw new Error(`${name} must be between 0 and 100`);
     }
   }
 
-  /**
-   * Validate timestamp
-   */
   public static validateTimestamp(timestamp: number): void {
     const now = Date.now();
     const minTimestamp = now - 365 * 24 * 60 * 60 * 1000; // 1 year ago

@@ -9,8 +9,8 @@ const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT || 'http://127.0.0.1:9000',
   forcePathStyle: true,
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY || 'lobster',
-    secretAccessKey: process.env.S3_SECRET_KEY || 'lobster-secret-123'
+    accessKeyId: process.env.S3_ACCESS_KEY || '',
+    secretAccessKey: process.env.S3_SECRET_KEY || ''
   }
 });
 
