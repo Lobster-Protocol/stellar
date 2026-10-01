@@ -5,7 +5,6 @@ import { Keypair } from '@stellar/stellar-sdk';
 const PORT = Number(process.env.SIGNER_API_PORT || 4001);
 
 const signerSecretHex = process.env.SIGNER_SECRET_HEX;
-console.log("signerSecretHex:", signerSecretHex);
 
 if (!signerSecretHex) {
   throw new Error(
@@ -48,7 +47,7 @@ app.post('/sign', (req, res) => {
   const signatureHex = Buffer.from(signature).toString('hex');
 
   console.log("");
-  console.log("New Signature comming");
+  console.log("New signature request");
   
   console.log('signatureHex =>', signatureHex);
 

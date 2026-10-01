@@ -12,48 +12,41 @@ async function getCurrentLedger(rpcUrl: string): Promise<number> {
 }
 
 function secretToHex(secret: string): string {
-  // Check if it's already a hex string (64 characters)
   const isHexSeed = /^[0-9a-fA-F]{64}$/;
   if (isHexSeed.test(secret)) {
     return secret.toLowerCase();
   }
-  // Otherwise, treat it as a Stellar secret key
   if (secret.startsWith('S')) {
     const keypair = Keypair.fromSecret(secret);
     return Buffer.from(keypair.rawSecretKey()).toString('hex');
   }
-  throw new Error(`Invalid secret format. Expected Stellar secret (S...) or hex (64 chars), got: ${secret.substring(0, 10)}...`);
+  throw new Error('Invalid secret format. Expected Stellar secret (S...) or hex (64 chars)');
 }
 
 async function main() {
-  // Configuration from environment
 
   const feepayerSecret = process.env.FEEPAYER_SECRET ?? process.env.SECRET ?? '';
   if (!feepayerSecret) {
     throw new Error('FEEPAYER_SECRET or SECRET environment variable is required');
   }
 
-  // Caller address - this is the multisig account that will be the caller in the contract
-  // FEEPAYER_SECRET is separate and only used to pay fees
+  // the multisig account is the caller; FEEPAYER_SECRET only pays the fees
   const caller = process.env.CALLER_ADDRESS ?? 'CBX5O4ZTTZQRU2BSIR7MP56I7Y6NX2BXEAQBOM7TH32KJYU7UTN5JCOH';
 
   const rpcUrl = process.env.RPC_URL ?? 'https://soroban-testnet.stellar.org';
   const networkPassphrase = process.env.NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
   
-  // Get current ledger for signature expiration
   const currentLedger = await getCurrentLedger(rpcUrl);
   const signatureExpirationLedger = currentLedger + 100;
 
-  // Contract ID - replace with your contract address
   const contractId = process.env.CONTRACT_ID ?? 'CCTRCILPS7AH4OQ5UYQDMI26TGSNVAGJG45ORF6JJH24QECO4UZK5RPM';
   if (!contractId) {
     throw new Error('CONTRACT_ID environment variable is required');
   }
 
-  // Setup signers
   const signers: Array<{ secretKeyHex?: string; apiUrl?: string }> = [];
 
-  // Add local signers from MULTISIG_SIGNER_SECRETS (can be hex or Stellar secrets)
+  // MULTISIG_SIGNER_SECRETS entries can be hex seeds or Stellar secrets
   const localSecrets = (process.env.MULTISIG_SIGNER_SECRETS ?? '')
     .split(',')
     .map((s) => s.trim())
@@ -64,7 +57,6 @@ async function main() {
       const hexSecret = secretToHex(secret);
       signers.push({ secretKeyHex: hexSecret });
       
-      // Get public key for logging
       const keypair = Keypair.fromRawEd25519Seed(Buffer.from(hexSecret, 'hex'));
       console.log(`Added local signer: ${keypair.publicKey()} (hex: ${Buffer.from(keypair.rawPublicKey()).toString('hex')})`);
     } catch (error) {
@@ -72,7 +64,6 @@ async function main() {
     }
   }
 
-  // Add external signers from MULTISIG_SIGNER_APIS
   const apiUrls = (process.env.MULTISIG_SIGNER_APIS ?? '')
     .split(',')
     .map((s) => s.trim())
@@ -87,13 +78,11 @@ async function main() {
     throw new Error('No signers configured. Set MULTISIG_SIGNER_SECRETS and/or MULTISIG_SIGNER_APIS');
   }
 
-  // Determine multisig type from environment (default: n-of-n)
   const multisigType = (process.env.MULTISIG_TYPE ?? 'n-of-n') as '1-of-n' | 'n-of-n';
   if (multisigType !== '1-of-n' && multisigType !== 'n-of-n') {
     throw new Error('MULTISIG_TYPE must be either "1-of-n" or "n-of-n"');
   }
 
-  // Create multisig config
   const config: MultisigConfig = {
     contractId,
     caller,
@@ -105,7 +94,7 @@ async function main() {
     multisigType,
   };
 
-  console.log('\n=== Multisig Config ===');
+  console.log('\nMultisig config');
   console.log('Contract ID:', contractId);
   console.log('Caller (multisig account):', caller);
   console.log('Feepayer (pays TX fees):', Keypair.fromSecret(feepayerSecret).publicKey());
@@ -114,9 +103,8 @@ async function main() {
   console.log('Signature Expiration Ledger:', signatureExpirationLedger);
   console.log('RPC URL:', rpcUrl);
   console.log('Network:', networkPassphrase);
-  console.log('========================\n');
+  console.log('');
 
-  // Add Liquidity Soroswap parameters
   const amount0 = Number.parseInt(process.env.AMOUNT0 ?? '1000', 10);
   const amount1 = Number.parseInt(process.env.AMOUNT1 ?? '5000', 10);
   const amount0Min = Number.parseInt(process.env.AMOUNT0_MIN ?? '40', 10);
@@ -128,7 +116,7 @@ async function main() {
     throw new Error('SOROSWAP_ROUTER or ROUTER_ADDRESS environment variable is required');
   }
 
-  console.log('\n=== Add Liquidity Parameters ===');
+  console.log('\nAdd liquidity parameters');
   console.log('Amount 0:', amount0);
   console.log('Amount 1:', amount1);
   console.log('Amount 0 Min:', amount0Min);
@@ -136,12 +124,11 @@ async function main() {
   console.log('Deadline Ledger:', deadlineLedger);
   console.log('Router Address:', routerAddress);
 
-  console.log('================================\n');
+  console.log('');
 
   const poolAddress = process.env.POOL_ADDRESS ?? 'CBW6PPCXSPOYVQAMWGEC5C2DHVYVGEPTNTC6IWO7QO7WCFJXDXNTMTXJ';
   const slippage = process.env.SLIPPAGE ?? '500';
 
-  // Call add_liquidity_soroswap with multisig
   try {
     const response = await executeContractCallWithMultisig(
       config,
@@ -159,11 +146,11 @@ async function main() {
       )
     );
 
-    console.log('\n✅ Transaction sent successfully!');
+    console.log('\nTransaction sent');
     console.log('Status:', response.status);
     console.log('Hash:', response.hash);
   } catch (error) {
-    console.error('\n❌ Error executing contract call:', error);
+    console.error('\nContract call failed:', error);
     if (error instanceof Error) {
       console.error('Message:', error.message);
       console.error('Stack:', error.stack);

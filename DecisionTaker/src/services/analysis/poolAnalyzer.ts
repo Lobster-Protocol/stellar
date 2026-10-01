@@ -68,7 +68,11 @@ export async function getTokenPriceUSD(
   asset: string,
   network: 'mainnet' | 'testnet' = 'mainnet'
 ): Promise<number | null> {
-  const apiKey = process.env.API_KEY ?? 'sk_062e947839d9f172572b34c6eb6a9798f3babbb053cdae85cd8550ea2225c92d';
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error('API_KEY is not set, so the Soroswap price API cannot be called');
+    return null;
+  }
   const baseUrl = 'https://api.soroswap.finance/price';
   const params = new URLSearchParams({
     network: network,
@@ -134,7 +138,6 @@ export async function executePoolMigration(
     phoenix: string;
     aquarius: string;
   },
-  // ... other params needed for withdraw/add_liquidity
 ): Promise<void> {
   if (!decision.shouldChange || decision.targetPool === null) {
     console.log('No pool change needed');
@@ -145,7 +148,6 @@ export async function executePoolMigration(
   const publicKey = keypair.publicKey();
 
   let tx;
-  // 1. Withdraw from current pool
   switch (currentPool) {
     case 0: // Soroswap
       tx = await clientLobster.withdraw_soroswap({
@@ -178,7 +180,6 @@ export async function executePoolMigration(
 
   console.log('Sending the withdraw transaction...');
   let result = await tx?.signAndSend();
-  //console.log('result =>', JSON.stringify(result, null, 2));
   console.log('Withdraw done !');
 
   await new Promise(resolve => setTimeout(resolve, 10000));
@@ -188,7 +189,6 @@ export async function executePoolMigration(
   let balance1 = balance._value[1]._value._attributes.lo._value.toString();
 
   let tx2;
-  // 2. Add liquidity to target pool
   switch (decision.targetPool) {
     case 0: // Soroswap
       tx2 = await clientLobster.add_liquidity_soroswap({
@@ -225,7 +225,6 @@ export async function executePoolMigration(
 
   console.log('Sending the add liquidity transaction...');
   let result2 = await tx2?.signAndSend();
-  //console.log('result2 =>', JSON.stringify(result2, null, 2));
   console.log('Add liquidity done !');
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
@@ -238,12 +237,10 @@ async function deposit(
   dataAquarius: any,
 ): Promise<{ success: boolean; targetPool: number | null; error?: string }> {
   try {
-    // Get APRs from all three DEX
     const aprSoroswap = dataSoroswap.last?.aprList ?? 0;
     const aprPhoenix = dataPhoenix.last?.aprList ?? 0;
     const aprAquarius = dataAquarius.last?.aprList ?? 0;
 
-    // Find the DEX with the highest APR
     const aprs = [
       { pool: 0, apr: aprSoroswap, name: 'Soroswap' },
       { pool: 1, apr: aprPhoenix, name: 'Phoenix' },
@@ -257,12 +254,10 @@ async function deposit(
     console.log(`No active pool found. Best APR is ${bestPool.name} with ${bestPool.apr}%`);
 
 
-    // Get token balances
     const balance = await clientLobster.get_amounts_tokens();
     const balance0 = balance._value[0]._value._attributes.lo._value.toString();
     const balance1 = balance._value[1]._value._attributes.lo._value.toString();
 
-    // Check if we have balances to deposit
     if (BigInt(balance0) === 0n && BigInt(balance1) === 0n) {
       return {
         success: false,
@@ -281,7 +276,6 @@ async function deposit(
       aquarius: dataAquarius.pooladdress
     };
     let tx;
-    // Add liquidity to the best pool
     switch (bestPool.pool) {
       case 0: // Soroswap
         tx = await clientLobster.add_liquidity_soroswap({
@@ -360,7 +354,6 @@ export async function compareAndDecidePool(
     case 0: // Current pool is Soroswap
       console.log('Current pool: Soroswap, comparing with Phoenix and Aquarius');
 
-      // Compare Soroswap vs Phoenix
       const shouldChangeToPhoenix = shouldChangePool({
         arbitrageFee,
         userPositionToken0,
@@ -369,7 +362,6 @@ export async function compareAndDecidePool(
         recoveryDay
       });
 
-      // Compare Soroswap vs Aquarius
       const shouldChangeToAquarius = shouldChangePool({
         arbitrageFee,
         userPositionToken0,
@@ -381,7 +373,6 @@ export async function compareAndDecidePool(
       console.log('Should change to Phoenix?', shouldChangeToPhoenix);
       console.log('Should change to Aquarius?', shouldChangeToAquarius);
 
-      // Determine best option
       if (shouldChangeToPhoenix && shouldChangeToAquarius) {
         const bestPool = aprPhoenix > aprAquarius ? 1 : 2;
         const bestPoolName = aprPhoenix > aprAquarius ? 'Phoenix' : 'Aquarius';
@@ -404,7 +395,6 @@ export async function compareAndDecidePool(
     case 1: // Current pool is Phoenix
       console.log('Current pool: Phoenix, comparing with Soroswap and Aquarius');
 
-      // Compare Phoenix vs Soroswap
       const shouldChangeToSoroswapFromPhoenix = shouldChangePool({
         arbitrageFee,
         userPositionToken0,
@@ -413,7 +403,6 @@ export async function compareAndDecidePool(
         recoveryDay
       });
 
-      // Compare Phoenix vs Aquarius
       const shouldChangeToAquariusFromPhoenix = shouldChangePool({
         arbitrageFee,
         userPositionToken0,
@@ -447,7 +436,6 @@ export async function compareAndDecidePool(
     case 2: // Current pool is Aquarius
       console.log('Current pool: Aquarius, comparing with Soroswap and Phoenix');
 
-      // Compare Aquarius vs Soroswap
       const shouldChangeToSoroswapFromAquarius = shouldChangePool({
         arbitrageFee,
         userPositionToken0,
@@ -456,7 +444,6 @@ export async function compareAndDecidePool(
         recoveryDay
       });
 
-      // Compare Aquarius vs Phoenix
       const shouldChangeToPhoenixFromAquarius = shouldChangePool({
         arbitrageFee,
         userPositionToken0,
@@ -514,7 +501,7 @@ async function analyzeSinglePool(
     const dataAquarius = await getDataLast(pool.token0, pool.token1, "aquarius");
 
 
-    // If the pool is not active, deposit the tokens into the pool
+    // 5 means the vault has no position yet
     if (actualPool == 5) {
       const depositResult = await deposit(
         clientLobster,
@@ -608,7 +595,6 @@ async function analyzeSinglePool(
       1 // recoveryDay
     );
 
-    // Execute migration if requested and decision says to change
     if (decision.shouldChange) {
       try {
         await executePoolMigration(

@@ -18,14 +18,11 @@ import {
 } from './multisigPoolOperations.js';
 
 export type { SignerConfig } from './multisigPoolOperations.js';
-// ============================================================================
-// Unified Configuration Types
-// ============================================================================
 
 export type PoolOperationConfig =
-  | { mode: 'single'; secret: string }  // Scenario 1: Single signer
-  | { mode: 'multisig-local'; secret: string; signerSecrets: string[] }  // Scenario 2: Multiple local signers
-  | { mode: 'multisig-external'; secret: string; signers: SignerConfig[] }  // Scenario 3: Multiple signers with external APIs
+  | { mode: 'single'; secret: string }
+  | { mode: 'multisig-local'; secret: string; signerSecrets: string[] }
+  | { mode: 'multisig-external'; secret: string; signers: SignerConfig[] }  // signers may mix local keys and signer services
 
 type PoolAddresses = {
   soroswap: string;
@@ -33,29 +30,16 @@ type PoolAddresses = {
   aquarius: string;
 };
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Gets the caller public key from config or environment
- * For multisig, uses CALLER_ADDRESS from env if set
- * Otherwise derives from secret (for single signer mode)
- */
+// CALLER_ADDRESS is set to the multisig account in multisig setups; otherwise the signing key is the caller
 function getCallerPublicKey(config: PoolOperationConfig): string {
-  // For multisig, use CALLER_ADDRESS from env if set
   const callerAddress = process.env.CALLER_ADDRESS;
   if (callerAddress) {
     return callerAddress;
   }
-  // Otherwise derive from secret (for single signer mode)
   const keypair = Keypair.fromSecret(config.secret);
   return keypair.publicKey();
 }
 
-/**
- * Creates multisig config from pool operation config
- */
 async function createMultisigConfig(
   config: PoolOperationConfig,
   contractId: string,
@@ -68,7 +52,6 @@ async function createMultisigConfig(
   const signers: SignerConfig[] = [];
 
   if (config.mode === 'multisig-local') {
-    // Convert secret keys to hex format
     signers.push(...config.signerSecrets.map(secret => {
       const keypair = Keypair.fromSecret(secret);
       const rawSecret = keypair.rawSecretKey();
@@ -78,7 +61,6 @@ async function createMultisigConfig(
     signers.push(...config.signers);
   }
 
-  // Determine multisig type from environment (default: n-of-n)
   const multisigType = (process.env.MULTISIG_TYPE ?? 'n-of-n') as '1-of-n' | 'n-of-n';
 
   return {
@@ -86,16 +68,13 @@ async function createMultisigConfig(
     caller,
     signers,
     feepayerSecret: config.secret,
-    signatureExpirationLedger: await getCurrentLedger() + 100, // You'll need to implement getCurrentLedger()
+    signatureExpirationLedger: await getCurrentLedger() + 100,
     networkPassphrase: process.env.NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015",
     rpcUrl: process.env.RPC_URL ?? "https://soroban-testnet.stellar.org",
     multisigType
   };
 }
 
-/**
- * Helper to get current ledger (you may need to implement this)
- */
 async function getCurrentLedger(): Promise<number> {
   const rpcUrl = process.env.RPC_URL ?? "https://soroban-testnet.stellar.org";
 
@@ -111,9 +90,6 @@ async function getCurrentLedger(): Promise<number> {
 }
 
 
-/**
- * Executes add liquidity operation (handles all 3 scenarios)
- */
 async function executeAddLiquidity(
   config: PoolOperationConfig,
   clientLobster: LobsterClient,
@@ -128,7 +104,6 @@ async function executeAddLiquidity(
   const multisigConfig = await createMultisigConfig(config, contractId, caller);
 
   if (multisigConfig) {
-    // Use multisig
     let response;
     switch (poolIndex) {
       case 0: // Soroswap
@@ -167,7 +142,6 @@ async function executeAddLiquidity(
     }
     console.log(`Add liquidity transaction sent! Hash: ${response.hash}`);
   } else {
-    // Use direct signing (single signer)
     let tx;
     switch (poolIndex) {
       case 0: // Soroswap
@@ -210,9 +184,6 @@ async function executeAddLiquidity(
   }
 }
 
-/**
- * Executes withdraw operation (handles all 3 scenarios)
- */
 async function executeWithdraw(
   config: PoolOperationConfig,
   clientLobster: LobsterClient,
@@ -225,7 +196,6 @@ async function executeWithdraw(
   const multisigConfig = await createMultisigConfig(config, contractId, caller);
 
   if (multisigConfig) {
-    // Use multisig
     let response;
     switch (poolIndex) {
       case 0: // Soroswap
@@ -260,7 +230,6 @@ async function executeWithdraw(
     }
     console.log(`Withdraw transaction sent! Hash: ${response.hash}`);
   } else {
-    // Use direct signing (single signer)
     let tx;
     switch (poolIndex) {
       case 0: // Soroswap
@@ -299,14 +268,7 @@ async function executeWithdraw(
   }
 }
 
-// ============================================================================
-// Public Functions
-// ============================================================================
-
-/**
- * Deposits liquidity to the best pool (highest APR)
- * Handles all 3 signing scenarios
- */
+// deposits the vault's idle balances into the DEX with the highest APR
 export async function deposit(
   config: PoolOperationConfig,
   clientLobster: LobsterClient,
@@ -316,12 +278,10 @@ export async function deposit(
   dataAquarius: any,
 ): Promise<{ success: boolean; targetPool: number | null; error?: string }> {
   try {
-    // Get APRs from all three DEX
     const aprSoroswap = dataSoroswap.last?.aprList ?? 0;
     const aprPhoenix = dataPhoenix.last?.aprList ?? 0;
     const aprAquarius = dataAquarius.last?.aprList ?? 0;
 
-    // Find the DEX with the highest APR
     const aprs = [
       { pool: 0, apr: aprSoroswap, name: 'Soroswap' },
       { pool: 1, apr: aprPhoenix, name: 'Phoenix' },
@@ -334,12 +294,10 @@ export async function deposit(
 
     console.log(`No active pool found. Best APR is ${bestPool.name} with ${bestPool.apr}%`);
 
-    // Get token balances
     const balance = await clientLobster.get_amounts_tokens();
     let balance0 = BigInt(balance._value[0]._value._attributes.lo._value.toString());
     let balance1 = BigInt(balance._value[1]._value._attributes.lo._value.toString());
 
-    // Check if we have balances to deposit
     if (balance0 === 0n && balance1 === 0n) {
       return {
         success: false,
@@ -358,7 +316,6 @@ export async function deposit(
     console.log('balance0 =>', balance0.toString());
     console.log('balance1 =>', balance1.toString());
 
-    // Execute deposit using unified function
     await executeAddLiquidity(
       config,
       clientLobster,
@@ -383,10 +340,7 @@ export async function deposit(
   }
 }
 
-/**
- * Executes pool migration (withdraw from current, deposit to target)
- * Handles all 3 signing scenarios
- */
+// withdraws from the current DEX, then deposits everything the vault holds into the target one
 export async function executePoolMigration(
   config: PoolOperationConfig,
   clientLobster: LobsterClient,
@@ -399,20 +353,17 @@ export async function executePoolMigration(
     return;
   }
 
-  // 1. Withdraw from current pool
   console.log(`Withdrawing from pool ${decision.currentPool}...`);
   await executeWithdraw(config, clientLobster, contractId, decision.currentPool, poolAddresses);
 
-  // Wait a bit for the transaction to settle
+  // a multisig send returns before the ledger closes, so give the withdraw time to land before reading balances
   await new Promise(resolve => setTimeout(resolve, 10000));
 
-  // 2. Get new balances
   let balance = await clientLobster.get_amounts_tokens();
   let balance0 = BigInt(balance._value[0]._value._attributes.lo._value.toString());
   let balance1 = BigInt(balance._value[1]._value._attributes.lo._value.toString());
 
 
-  // 4. Add liquidity to target pool
   console.log(`Adding liquidity to pool ${decision.targetPool}...`);
   await executeAddLiquidity(
     config,

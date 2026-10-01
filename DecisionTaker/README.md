@@ -1,198 +1,142 @@
 # DecisionTaker
 
-DecisionTaker is a TypeScript/Express service that automates liquidity-pool due diligence for Soroban-based DEX ecosystems (Soroswap, Phoenix, Aquarius). It compares APRs, inspects balances, and—when configured—can trigger multisig pool migrations using custom bindings that ship with the repo. The project ships with a REST API (for triggering analyses) and a lightweight signer API used by multisig deployments.
+Express service that decides where each Lobster vault's liquidity should sit, and moves it. For each vault it's asked about, it reads the active DEX from the vault, the latest APRs from the DataProcess API and a USD price from the Soroswap price API. An idle vault is deposited into the DEX with the best APR. An active one is compared with the other two DEXes (`shouldChangePool` in `src/services/analysis/poolAnalyzer.ts`) and withdrawn and re-added elsewhere when the rule says so.
 
----
+Transactions are signed with one key or by a set of multisig signers. A signer is either a local key or an instance of `multisig/signerApi.ts`, a small service that can run on its own machine.
 
-## Highlights
-- Runs targeted or portfolio-wide pool analysis with a single HTTP call.
-- Supports single-signer, local multisig, and external multisig flows.
-- Ships with two Docker targets (analysis API + signer API) so you can scale them independently.
-- Provides generated Soroban bindings for interacting with Lobster, Factory, and Token contracts.
+Pool numbers follow the vault's `get_active_protocol`: 0 Soroswap, 1 Phoenix, 2 Aquarius, 5 no position. The vault in `../SmartContract` only has the Soroswap entry points, so every call for 1 or 2 fails against it. A move from 0 to 1 or 2 still runs the Soroswap withdraw first, and the tokens then stay idle in the vault.
 
----
+## Run it
 
-## Project Layout
-
-| Path | Purpose |
-| --- | --- |
-| `src/server.ts` | Express entry point exposing health + analysis routes. |
-| `src/poolAnalyzer*.ts` | Analysis logic plus multisig orchestration. |
-| `multisig/signerApi.ts` | Stand-alone signer microservice (used in N-of-N external multisig). |
-| `bindings/` | Soroban client bindings generated via `soroban contract bindings`. |
-| `Dockerfile` | Multi-stage build producing `server` and `signer` images from the same sources. |
-
----
-
-## Prerequisites
-- Node.js 20+
-- npm 10+
-- Docker (for containerized workflows)
-- Access to Soroban RPC + Lobster contracts (set through env vars)
-
----
-
-## Local Development
+Node 20 or later.
 
 ```bash
-cp .env.example .env   # create your local env file (see vars below)
+cp .env.example .env
 npm install
-npm run dev            # start Express in watch mode (defaults to http://localhost:3334)
+npm run dev        # http://localhost:3334
 ```
 
-Build and run the compiled server:
+Compiled:
 
 ```bash
 npm run build
 npm start
 ```
 
-Unit/integration scripts (optional helpers in `src/test*.ts`) can be executed with `ts-node` or by extending the npm scripts.
+## Routes
 
----
+| Route | What it does |
+| --- | --- |
+| `GET /` | `{ message }`, to see that the API is up |
+| `GET /health` | `{ status: "ok" }` |
+| `GET /api/run/all` | analyzes every vault of `FACTORY_ID`, returns `{ success, count, results }` |
+| `GET /api/run/user/:userAddress` | only the vaults owned by that address, returns `{ success, userAddress, count, results }` |
+| `GET /api/run/pool/:poolId` | one vault by its numeric factory ID, returns `{ success, poolId, result }`, where `result` is an array too |
+| `GET /api/feepayer/xlm-balance` | XLM balance of the account behind `FEEPAYER_SECRET` (or `SECRET`) |
 
-## API Routes
-
-All routes live under the main Express server (default port `3334`). Each request returns JSON and surfaces errors with HTTP 4xx/5xx codes.
-
-| Method | Route | Description |
-| --- | --- | --- |
-| `GET /` | Basic status message to confirm the API is reachable. |
-| `GET /health` | Health probe used by Docker/Kubernetes. |
-| `GET /api/run/all` | Runs the analyzer across every known Lobster pool. Returns `{ success, count, results[] }`. |
-| `GET /api/run/user/:userAddress` | Filters analysis to pools created by the provided Stellar address. |
-| `GET /api/run/pool/:poolId` | Targets a specific pool ID and uses the multisig-aware analyzer. |
-
-Example request:
+The `/api/run` routes are GETs with no authentication, and they can submit deposits and migrations on chain. Errors come back as `{ success: false, error }` with status 400 or 500.
 
 ```bash
-curl http://localhost:3334/api/run/user/CBX5O4ZT...UTN5JCOH
+curl http://localhost:3334/api/run/all
 ```
-
-Response (trimmed):
 
 ```json
 {
   "success": true,
-  "userAddress": "CBX5O4ZT…",
-  "count": 2,
+  "count": 1,
   "results": [
     {
-      "poolId": 42,
-      "lobsterAddress": "CCU3…",
-      "token0": "CBW6…",
-      "token1": "CD7P…",
-      "currentPool": 1,
-      "newPool": 2
+      "poolId": 1,
+      "lobsterAddress": "C...",
+      "token0": "C...",
+      "token1": "C...",
+      "currentPool": 0,
+      "newPool": null,
+      "error": "null"
     }
   ]
 }
 ```
 
-Every result object includes enough metadata (tokens, APR decision, migration target, error string) for downstream automation.
+`newPool` is the DEX the analysis picked, or `null` when the vault stays where it is. `error` is the string `"null"` when nothing failed. A vault whose analysis threw comes back with `currentPool: -1` and the message in `error`.
 
----
+## Configuration
 
-## Environment Variables
+`.env` is read with dotenv. In Docker, pass the same variables with `--env-file` or `-e`. `.env.example` is valid for both and leaves the secrets empty: `SECRET`, `FEEPAYER_SECRET`, `SIGNER_SECRET_HEX` and `API_KEY`.
 
-Create a `.env` (or inject values via Docker/Kubernetes secrets). The most important options are grouped below.
-
-### Core Analyzer + API (`src/server.ts`, `src/poolAnalyzer*.ts`)
-
-| Variable | Required | Description |
+| Variable | Default | Use |
 | --- | --- | --- |
-| `HOST` | No (default `0.0.0.0`) | Address Express binds to. |
-| `PORT` | No (default `3334`) | Public API port. |
-| `NETWORK` | No (default `mainnet`) | Market data target (`mainnet` or `testnet`). |
-| `RPC_URL` | Yes | Soroban RPC endpoint used for contract calls. |
-| `NETWORK_PASSPHRASE` | Yes | Matching passphrase for the RPC target. |
-| `SECRET` | Yes | Stellar secret for general contract calls. |
-| `FEEPAYER_SECRET` | Yes for multisig | Stellar secret that pays fees when migrating pools. |
-| `FACTORY_ID` | Yes | Factory contract ID. |
-| `PROCESS_URL` | No (defaults to local) | Data service used by `getDataLast`. |
-| `API_KEY` | Maybe | API token for external market data (falls back to demo key). |
-| `CALLER_ADDRESS` | Optional | Address recorded as the caller of pool operations. |
-| `SOROSWAP_ROUTER` | Optional | Router contract used during migrations. |
+| `PORT` | `3334` | API port |
+| `HOST` | `0.0.0.0` | only printed in the startup log, the server listens on all interfaces |
+| `RPC_URL` | `https://soroban-testnet.stellar.org` | Soroban RPC for every contract call |
+| `NETWORK_PASSPHRASE` | | when unset, the contract clients guess it from `RPC_URL` (testnet when the URL contains `testnet` or `futurenet`, public otherwise), but multisig signing falls back to the testnet passphrase. Set it on mainnet. |
+| `FACTORY_ID` | required | Lobster factory to read vaults from |
+| `FEEPAYER_SECRET` | `SECRET` | Stellar secret that signs and pays for everything the API sends. Without it or `SECRET`, every `/api/run` call returns 500. An empty `FEEPAYER_SECRET=` line counts as set and does not fall back to `SECRET`, so delete the line if you only fill in `SECRET`. |
+| `SECRET` | | used when `FEEPAYER_SECRET` is unset. `src/scripts/testTX*.ts` need it. |
+| `CALLER_ADDRESS` | public key of the signing secret | address passed as `caller` to the vault. In multisig modes, the multisig account. |
+| `SOROSWAP_ROUTER` | | router passed to `add_liquidity_soroswap` and `withdraw_soroswap`. It has to be the router the vault was created with. |
+| `PROCESS_URL` | `http://localhost:8085/data/last` | DataProcess endpoint that returns the pool address and latest APR of a pair |
+| `API_KEY` | | key for the Soroswap price API (`api.soroswap.finance`). Without it, a vault that already has a position comes back with an error. |
+| `NETWORK` | `mainnet` | network sent to the price API, `mainnet` or `testnet` |
 
-### Multisig Coordination (`src/poolAnalyzerMultisig.ts`)
+## Multisig
 
-| Variable | Description |
-| --- | --- |
-| `MULTISIG_MODE` | `single`, `multisig-local`, or `multisig-external`. |
-| `MULTISIG_SIGNER_SECRETS` | Comma-separated Stellar secrets or 32-byte hex seeds for local signers. |
-| `MULTISIG_SIGNER_APIS` | Comma-separated URLs (e.g. `http://signer-a:4001/sign`) for external signer services. |
-| `MULTISIG_TYPE` | `1-of-n` or `n-of-n` (see `src/testMultisigSimple.ts`). |
-
-### Signer Microservice (`multisig/signerApi.ts`)
-
-| Variable | Required | Description |
+| Variable | Default | Use |
 | --- | --- | --- |
-| `SIGNER_SECRET_HEX` | Yes | 32-byte ed25519 seed (64 hex chars). Derives the signer keypair. |
-| `SIGNER_API_PORT` | No (default `4001`) | HTTP port for this signer instance. |
+| `MULTISIG_MODE` | `single` | `single`, `multisig-local` (or `local`), `multisig-external` (or `external`) |
+| `MULTISIG_SIGNER_SECRETS` | | comma-separated signer keys. Local mode needs `S...` secrets, external mode also takes 64-character hex ed25519 seeds. |
+| `MULTISIG_SIGNER_APIS` | | comma-separated base URLs of signer services, for example `http://signer-a:4001`. The API calls `/health` and `/sign` on each. |
+| `MULTISIG_TYPE` | `n-of-n` | `n-of-n` collects every signature, sorted by public key. `1-of-n` uses the first signer that answers. |
 
----
+External mode needs at least one entry in `MULTISIG_SIGNER_SECRETS` or `MULTISIG_SIGNER_APIS`, otherwise every `/api/run` call returns 500.
 
-## Docker: Two-Container System
+Each signer service holds one key:
 
-The `Dockerfile` exposes two targets so that you can run the analysis API and any number of signer APIs independently.
+| Variable | Default | Use |
+| --- | --- | --- |
+| `SIGNER_SECRET_HEX` | required | the signer's 32-byte ed25519 seed, as 64 hex characters. The service logs its public key, never the seed. |
+| `SIGNER_API_PORT` | `4001` | port |
 
-### Build images
+It answers `POST /sign` with a JSON body `{ "payloadHash": "<64 hex chars>", "index": 0 }` and returns `{ index, publicKey, signature }` in hex. `GET /health` returns `{ status: "ok", publicKey }`. There is no authentication on `/sign`, so only the API should be able to reach a signer. Run it with `npm run dev:signer` or `npm run start:signer`, or `node dist/multisig/signerApi.js` after a build.
+
+## Docker
+
+The `Dockerfile` builds both images from the same sources.
 
 ```bash
-# Build the Express analysis API
 docker build -t decisiontaker-server --target server .
-
-# Build the signer microservice (reusable for every signer node)
 docker build -t decisiontaker-signer --target signer .
+
+docker run --rm -p 3334:3334 --env-file .env --name decisiontaker-api decisiontaker-server
+
+# one container per signer; SIGNER_SECRET_HEX is read from your shell, so export each seed before its run
+docker run --rm -p 127.0.0.1:4001:4001 -e SIGNER_SECRET_HEX -e SIGNER_API_PORT=4001 --name signer-a decisiontaker-signer
+docker run --rm -p 127.0.0.1:4002:4002 -e SIGNER_SECRET_HEX -e SIGNER_API_PORT=4002 --name signer-b decisiontaker-signer
 ```
 
-### Run containers
+The server image declares port 3000, but the app listens on `PORT` (3334 unless set), so map that one. Docker reads `--env-file` lines literally: no spaces around `=`, no quotes. List the signer URLs in `MULTISIG_SIGNER_APIS` once they're reachable. With the API in a container too, a URL like `http://signer-a:4001` only resolves when the containers share a user-defined network (`docker network create`, then `--network` on each `docker run`).
 
-```bash
-# 1) API server (requires your .env values for RPC + secrets)
-docker run --rm \
-  -p 3334:3000 \
-  --env-file .env \
-  --name decisiontaker-api \
-  decisiontaker-server
+## Scripts
 
-# 2) Signer nodes (repeat per signer with unique secrets/ports)
-docker run --rm \
-  -p 4001:4001 \
-  -e SIGNER_SECRET_HEX=0000...0001 \
-  -e SIGNER_API_PORT=4001 \
-  --name signer-a \
-  decisiontaker-signer
-
-docker run --rm \
-  -p 4002:4002 \
-  -e SIGNER_SECRET_HEX=0000...0002 \
-  -e SIGNER_API_PORT=4002 \
-  --name signer-b \
-  decisiontaker-signer
-```
-
-Once the signer pods are reachable, list their URLs in `MULTISIG_SIGNER_APIS` so the analyzer can request signatures when executing pool migrations.
-
----
-
-## Troubleshooting
-
-- **`401` or RPC errors**: Validate `SECRET`, `FEEPAYER_SECRET`, and `FACTORY_ID`. Ensure the account trusts the required tokens.
-- **`MULTISIG_MODE=external` but no signers**: Confirm both `MULTISIG_SIGNER_SECRETS` and/or `MULTISIG_SIGNER_APIS` are set.
-- **Docker health check fails**: Verify `HOST`/`PORT` mappings and that `npm run build` completed during the image stage.
-
----
-
-## Useful Scripts
-
-| Command | Purpose |
+| Command | What it runs |
 | --- | --- |
-| `npm run dev` | Runs `ts-node-dev` with hot reload for the Express API. |
-| `npm run build` | Transpiles TypeScript to `dist/`. |
-| `npm start` | Launches the compiled server (`dist/src/server.js`). |
-| `node dist/multisig/signerApi.js` | Runs the signer microservice locally (after `npm run build`). |
+| `npm run dev` | `tsx watch src/api/server.ts` |
+| `npm run build` | `tsc -p tsconfig.json`, output in `dist/` |
+| `npm start` | `node dist/src/api/server.js` |
+| `npm run dev:signer` | `tsx watch multisig/signerApi.ts` |
+| `npm run start:signer` | `tsx multisig/signerApi.ts` |
+| `npm run test:multisig-simple` | `src/scripts/testMultisigSimple.ts` |
+| `npm run test:multisig` | `src/services/multisig/multisig.ts`, one `add_liquidity_soroswap` call on testnet signed with every key in `MULTISIG_SIGNER_SECRETS` |
 
----
+There are no unit tests. The files in `src/scripts/` run against the network in `.env` and submit real transactions. `testMultisigSimple.ts` sends one `add_liquidity_phoenix` call to `CONTRACT_ID` through the multisig signing path, so it's the place to read that flow end to end. `testTXAdmin.ts` and `testTXMultisig.ts` (run them with `npx tsx`) move every vault of `FACTORY_ID` into Soroswap.
 
-Need more detail? Check `src/testMultisigSimple.ts` for example multisig flows, or inspect the bindings in `bindings/*.ts` for on-chain method signatures.
+## Layout
+
+| Path | Contents |
+| --- | --- |
+| `src/api/server.ts` | Express app and routes |
+| `src/services/analysis/` | `poolAnalyzer.ts` (APR rule, price and DataProcess calls) and `poolAnalyzerMultisig.ts`, which the routes run |
+| `src/services/operations/` | deposit, withdraw and migration calls, single key or multisig |
+| `multisig/signerApi.ts` | signer service |
+| `bindings/` | `lobster.ts`, `factory.ts` and `token.ts`, generated with `stellar contract bindings typescript`, plus `*Client.ts` wrappers that sign with a local secret |
+| `Dockerfile` | `server` and `signer` targets |

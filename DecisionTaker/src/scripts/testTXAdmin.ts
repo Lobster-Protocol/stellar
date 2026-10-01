@@ -23,9 +23,6 @@ import { getDataLast, getTokenPriceUSD, compareAndDecidePool, executePoolMigrati
 
 async function main() {
 
-    // const test = await getDataLast("CBKZSM5NS3JJ5C4OVQBXBIYPTNQAZIX7BGS62LA7VPBV6UBX734P6D6U7", "CDSEE7QX6NKWTQFZW4UJXHJKJKPMSMMZBPDGYBUWYYYM4XYJ3AHUNFTZ", "soroswap");
-    // console.log('test =>', test);
-
     const secret = process.env.SECRET ?? '';
     if (!secret) {
         throw new Error('SECRET is required in environment');
@@ -57,30 +54,10 @@ async function main() {
         pools.push(pool);
     }
 
-    // const clientLobster = new LobsterClient(secret, "CBD7QHOQLAWCBOJA2NJAGL23WCYGS7J322ASJHYTGP2G5YDZ56HDEDD4");
-    // const actualPool = await clientLobster.get_active_protocol();
-    // console.log('actualPool =>', actualPool);
-
-    // const balanceInToken0 = await clientLobster.get_amounts_from_soroswap();
-
-    // const tx = await balanceInToken0.simulate();
-
-
-
-    // console.log(JSON.stringify(tx, null, 2));
-
-
-
     for (const pool of pools) {
         try {
             const clientLobster = new LobsterClient(secret, pool.lobster_address);
 
-        //     let balance = await clientLobster.get_amounts_tokens();
-        //     let balance0 = balance._value[0]._value._attributes.lo._value.toString();
-        //     let balance1 = balance._value[1]._value._attributes.lo._value.toString();
-        // console.log('balance0 =>', balance0);
-        // console.log('balance1 =>', balance1);
-        // return
             const actualPool = await clientLobster.get_active_protocol();
             console.log('actualPool =>', actualPool);
 
@@ -131,7 +108,7 @@ async function main() {
             let clientTokens = new TokenClient(secret, pool.token0);
 
             let query_decimals = await clientTokens.decimals();
-            let decimal = query_decimals._value; //console.log('decimals =>', JSON.stringify(decimals._value, null, 2));
+            let decimal = query_decimals._value;
 
 
 
@@ -162,33 +139,10 @@ async function main() {
                 await executePoolMigration(clientLobster, myDecision, actualPool, poolAddresses);
             }
 
-
-            // const balance = await clientTokens.balance({ id: "CBZI3HVJFRUPVGOCPJIW6ILY5EGUL6LJH3UEQOBE7A2T4EKYDVBZMHOR" });
-            // console.log('balance =>', JSON.stringify(balance._value._attributes.lo._value.toString(), null, 2));
-
-
         } catch (error) {
             console.error('Error getting active protocol for pool', pool.lobster_address, error);
         }
     }
-
-    // for (const pool of pools) {
-    //     try {
-    //         const clientLobster = new LobsterClient(secret, pool.lobster_address);
-    //         const actualPool = await clientLobster.get_active_protocol();
-
-    //         const dataSoroswap = await getDataLast(pool.token0, pool.token1, "soroswap");
-
-    //         const dataPhoenix = await getDataLast(pool.token0, pool.token1, "phoenix");
-
-    //         const dataAquarius = await getDataLast(pool.token0, pool.token1, "aquarius");
-
-
-
-    //     } catch (error) {
-    //         console.error('Error getting active protocol for pool', pool.lobster_address, error);
-    //     }
-    // }
 }
 
 main().catch((err) => {

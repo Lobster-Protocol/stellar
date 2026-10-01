@@ -1,10 +1,6 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
 import 'dotenv/config';
 
-// ============================================================================
-// Types
-// ============================================================================
-
 export type SignerConfig = {
   secretKeyHex?: string;  // For local signing
   apiUrl?: string;        // For external signing (e.g., "http://localhost:4001")
@@ -67,28 +63,17 @@ export type WithdrawAquariusParams = {
   poolAddress: string;
 };
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Creates keypairs from hex secret keys (for local signers)
- */
 function createKeypairsFromSecrets(secretKeysHex: string[]): StellarSdk.Keypair[] {
   return secretKeysHex.map(hexKey => 
     StellarSdk.Keypair.fromRawEd25519Seed(Buffer.from(hexKey, "hex"))
   );
 }
 
-/**
- * Gets public key from a signer (either from local keypair or by calling API)
- */
 async function getSignerPublicKey(signer: SignerConfig): Promise<Buffer> {
   if (signer.secretKeyHex) {
     const keypair = StellarSdk.Keypair.fromRawEd25519Seed(Buffer.from(signer.secretKeyHex, "hex"));
     return Buffer.from(keypair.rawPublicKey());
   } else if (signer.apiUrl) {
-    // Call health endpoint to get public key
     const response = await fetch(`${signer.apiUrl}/health`);
     if (!response.ok) {
       throw new Error(`Failed to get public key from signer API: ${response.statusText}`);
@@ -100,16 +85,12 @@ async function getSignerPublicKey(signer: SignerConfig): Promise<Buffer> {
   }
 }
 
-/**
- * Signs a payload hash (either locally or via API)
- */
 async function signPayloadHash(
   signer: SignerConfig,
   payloadHash: Buffer,
   index?: number
 ): Promise<{ publicKey: Buffer; signature: Buffer }> {
   if (signer.secretKeyHex) {
-    // Local signing
     const keypair = StellarSdk.Keypair.fromRawEd25519Seed(Buffer.from(signer.secretKeyHex, "hex"));
     const signature = keypair.sign(payloadHash);
     return {
@@ -117,7 +98,6 @@ async function signPayloadHash(
       signature: Buffer.from(signature)
     };
   } else if (signer.apiUrl) {
-    // External signing via API
     const payloadHashHex = Buffer.from(payloadHash).toString('hex');
     const response = await fetch(`${signer.apiUrl}/sign`, {
       method: 'POST',
@@ -145,11 +125,7 @@ async function signPayloadHash(
   }
 }
 
-/**
- * Signs auth entries with multiple signers (local and external)
- * Orders signatures by public key (lexicographically)
- * Supports both 1-of-n (single signature) and n-of-n (Vec of signatures) multisig types
- */
+// 1-of-n puts one signature map in the credentials, n-of-n a Vec of them sorted by public key
 async function signAuthEntries(
   preparedTransaction: StellarSdk.Transaction,
   signers: SignerConfig[],
@@ -178,7 +154,7 @@ async function signAuthEntries(
           console.log("    Nonce:", addressCreds.nonce().toString());
           console.log("    Signature expiration ledger:", signatureExpirationLedger);
 
-          // Build authorization payload (same for all signers)
+          // every signer signs the same payload
           const payload = StellarSdk.xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new StellarSdk.xdr.HashIdPreimageSorobanAuthorization({
               networkId: networkId,
@@ -188,15 +164,13 @@ async function signAuthEntries(
             })
           );
 
-          // Hash the payload
           const payloadXdr = payload.toXDR();
           const payloadHash = StellarSdk.hash(payloadXdr);
           const payloadHashHex = Buffer.from(payloadHash).toString('hex');
           console.log("    Payload hash:", payloadHashHex);
 
           if (multisigType === '1-of-n') {
-            // For 1-of-n multisig accounts, we only need ONE signature from any registered signer
-            // Try signers in order until we get a successful signature
+            // the first signer that answers is enough
             let signatureResult: { publicKey: Buffer; signature: Buffer } | null = null;
             let signerIndex = -1;
             
@@ -211,10 +185,9 @@ async function signAuthEntries(
                 console.log(`    Using signer ${i + 1} (${signerType}):`);
                 console.log("      Public key:", Buffer.from(result.publicKey).toString('hex'));
                 console.log("      Signature:", Buffer.from(result.signature).toString('hex'));
-                break; // Use first successful signature for 1-of-n multisig
+                break;
               } catch (error: any) {
-                console.warn(`    ⚠️  Failed to sign with signer ${i + 1}, trying next...`);
-                // Continue to next signer
+                console.warn(`    Failed to sign with signer ${i + 1}, trying the next one`);
               }
             }
 
@@ -222,7 +195,6 @@ async function signAuthEntries(
               throw new Error('Failed to get signature from any signer');
             }
 
-            // Create a single signature map (for 1-of-n multisig, we only need one signature)
             const signatureMap = StellarSdk.xdr.ScVal.scvMap([
               new StellarSdk.xdr.ScMapEntry({
                 key: StellarSdk.xdr.ScVal.scvSymbol("public_key"),
@@ -234,14 +206,12 @@ async function signAuthEntries(
               }),
             ]);
 
-            // Update credentials with single signature (1-of-n multisig)
             addressCreds.signatureExpirationLedger(signatureExpirationLedger);
             addressCreds.signature(signatureMap);
             
-            console.log(`    ✅ Auth entry signed with signer ${signerIndex + 1} (1-of-n multisig)`);
+            console.log(`    Auth entry signed with signer ${signerIndex + 1} (1-of-n multisig)`);
           } else {
-            // For n-of-n multisig accounts, we need ALL signatures from all registered signers
-            // Collect signatures from all signers
+            // n-of-n: every signer has to sign
             const signatureResults: Array<{ publicKey: Buffer; signature: Buffer; index: number }> = [];
             
             for (let i = 0; i < signers.length; i++) {
@@ -258,8 +228,8 @@ async function signAuthEntries(
                 console.log("      Public key:", Buffer.from(result.publicKey).toString('hex'));
                 console.log("      Signature:", Buffer.from(result.signature).toString('hex'));
               } catch (error: any) {
-                console.error(`    ❌ Failed to sign with signer ${i + 1}:`, error.message);
-                throw error; // For n-of-n, ALL signers must succeed
+                console.error(`    Failed to sign with signer ${i + 1}:`, error.message);
+                throw error;
               }
             }
 
@@ -267,8 +237,7 @@ async function signAuthEntries(
               throw new Error(`Expected ${signers.length} signatures but got ${signatureResults.length}`);
             }
 
-            // Sort signatures by public key (lexicographically) for consistent ordering
-            // This is required by the multisig contract
+            // the multisig contract requires the signatures sorted by public key
             signatureResults.sort((a, b) => {
               const aHex = Buffer.from(a.publicKey).toString('hex');
               const bHex = Buffer.from(b.publicKey).toString('hex');
@@ -280,7 +249,6 @@ async function signAuthEntries(
               console.log(`      ${idx + 1}. ${Buffer.from(result.publicKey).toString('hex')}`);
             });
 
-            // Create signature maps in sorted order
             const signatures: StellarSdk.xdr.ScVal[] = signatureResults.map(result => {
               return StellarSdk.xdr.ScVal.scvMap([
                 new StellarSdk.xdr.ScMapEntry({
@@ -294,30 +262,28 @@ async function signAuthEntries(
               ]);
             });
 
-            // Update credentials with Vec of signatures (n-of-n multisig requires all signatures)
             addressCreds.signatureExpirationLedger(signatureExpirationLedger);
             
-            // Create a Vec of signatures (Vec<AccSignature>)
+            // the account contract expects a Vec<AccSignature>
             const signaturesVec = StellarSdk.xdr.ScVal.scvVec(signatures);
             addressCreds.signature(signaturesVec);
             
-            console.log(`    ✅ Auth entry signed with ${signers.length} signatures (n-of-n multisig)`);
+            console.log(`    Auth entry signed with ${signers.length} signatures (n-of-n multisig)`);
           }
         }
       }
     }
   }
 
-  console.log(`✅ Signed ${authCount} auth entries`);
+  console.log(`Signed ${authCount} auth entries`);
 
-  // Rebuild transaction from modified envelope
   const modifiedEnvelope = StellarSdk.xdr.TransactionEnvelope.envelopeTypeTx(txe);
   const signedAuthTx = StellarSdk.TransactionBuilder.fromXDR(
     modifiedEnvelope.toXDR("base64"),
     preparedTransaction.networkPassphrase
   );
 
-  // We're building a regular transaction, not a fee bump, so this should always be a Transaction
+  // fromXDR is typed to return either kind; this envelope is never a fee bump
   if (signedAuthTx instanceof StellarSdk.FeeBumpTransaction) {
     throw new Error("Unexpected FeeBumpTransaction type");
   }
@@ -325,15 +291,11 @@ async function signAuthEntries(
   return signedAuthTx;
 }
 
-/**
- * Core function to execute a contract call with multisig
- */
 export async function executeContractCallWithMultisig(
   config: MultisigConfig,
   methodName: string,
   buildOperation: (contract: StellarSdk.Contract) =>  StellarSdk.xdr.Operation<StellarSdk.Operation.InvokeHostFunction>
 ): Promise<StellarSdk.rpc.Api.SendTransactionResponse> {
-  // Setup
   const server = new StellarSdk.rpc.Server(config.rpcUrl, {
     allowHttp: config.rpcUrl.startsWith("http://"),
   });
@@ -359,12 +321,10 @@ export async function executeContractCallWithMultisig(
   const feepayerAccount = await server.getAccount(feepayerKeypair.publicKey());
   const networkId = StellarSdk.hash(Buffer.from(config.networkPassphrase));
 
-  // Build the contract operation
   console.log(`\nBuilding contract operation: ${methodName}...`);
   const contract = new StellarSdk.Contract(config.contractId);
   const operation = buildOperation(contract);
 
-  // Build transaction
   console.log("\nBuilding transaction...");
   const transaction = new StellarSdk.TransactionBuilder(feepayerAccount, {
     fee: StellarSdk.BASE_FEE,
@@ -374,7 +334,6 @@ export async function executeContractCallWithMultisig(
     .setTimeout(StellarSdk.TimeoutInfinite)
     .build();
 
-  // Simulate to get auth entries
   console.log("\nSimulating transaction...");
   const simulateResponse = await server.simulateTransaction(transaction);
   
@@ -382,14 +341,12 @@ export async function executeContractCallWithMultisig(
     throw new Error(`Simulation failed: ${JSON.stringify(simulateResponse)}`);
   }
 
-  // Prepare transaction
   console.log("\nPreparing transaction...");
   const preparedTransaction = await server.prepareTransaction(transaction);
   if (!preparedTransaction) {
     throw new Error("Failed to prepare transaction");
   }
 
-  // Sign auth entries with all signers (local and external)
   console.log("\nSigning auth entries with multiple signers...");
   const signedAuthTx = await signAuthEntries(
     preparedTransaction,
@@ -399,14 +356,12 @@ export async function executeContractCallWithMultisig(
     config.multisigType ?? 'n-of-n'
   );
 
-  // Simulate again
   console.log("\nSimulating with signed auth...");
   const simulateResponse2 = await server.simulateTransaction(signedAuthTx);
   if (StellarSdk.rpc.Api.isSimulationError(simulateResponse2)) {
     throw new Error(`Second simulation failed: ${JSON.stringify(simulateResponse2)}`);
   }
 
-  // Prepare and sign with feepayer
   console.log("\nPreparing and signing...");
   const preparedTx2 = await server.prepareTransaction(signedAuthTx);
   if (!preparedTx2) {
@@ -414,22 +369,14 @@ export async function executeContractCallWithMultisig(
   }
   preparedTx2.sign(feepayerKeypair);
 
-  // Send transaction
   console.log("\nSending transaction...");
   const sendResponse = await server.sendTransaction(preparedTx2);
 
-  //const sendResponse : StellarSdk.rpc.Api.SendTransactionResponse = {status: "PENDING" as StellarSdk.rpc.Api.SendTransactionStatus, hash: "////////////////////////////////", latestLedger: 1234567890, latestLedgerCloseTime: 1234567890};
-
-  
   console.log("  Send status:", sendResponse.status);
   console.log("  Transaction hash:", sendResponse.hash);
   
   return sendResponse;
 }
-
-// ============================================================================
-// Add Liquidity Functions
-// ============================================================================
 
 export async function addLiquiditySoroswapWithMultisig(
   config: MultisigConfig,
@@ -491,10 +438,6 @@ export async function addLiquidityAquariusWithMultisig(
   );
 }
 
-// ============================================================================
-// Withdraw Functions
-// ============================================================================
-
 export async function withdrawSoroswapWithMultisig(
   config: MultisigConfig,
   params: WithdrawSoroswapParams
@@ -507,9 +450,9 @@ export async function withdrawSoroswapWithMultisig(
       StellarSdk.nativeToScVal(config.caller, { type: "address" }),
       StellarSdk.nativeToScVal(params.amount0Min, { type: "i128" }),
       StellarSdk.nativeToScVal(params.amount1Min, { type: "i128" }),
-      StellarSdk.nativeToScVal(params.poolAddress, { type: "address" }),  // Moved to 4th
-      StellarSdk.nativeToScVal(params.routerAddress, { type: "address" }), // Moved to 5th
-      StellarSdk.nativeToScVal(params.deadline, { type: "u64" })           // Moved to 6th (LAST)
+      StellarSdk.nativeToScVal(params.poolAddress, { type: "address" }),
+      StellarSdk.nativeToScVal(params.routerAddress, { type: "address" }),
+      StellarSdk.nativeToScVal(params.deadline, { type: "u64" })
     )
   );
 }
