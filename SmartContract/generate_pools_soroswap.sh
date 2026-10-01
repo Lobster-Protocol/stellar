@@ -15,7 +15,7 @@ NETWORK="${NETWORK:-mainnet}"
 
 echo "🔄 Step 1: Getting pool count..."
 
-# Get the pool count using the same command as the Makefile target
+# Get the pool count
 LENGTH_OUTPUT=$(
   stellar contract invoke \
     --id "$FACTORY_ID" \

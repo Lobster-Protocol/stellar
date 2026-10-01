@@ -38,6 +38,23 @@ const LOBSTER_WASM_HASH: Symbol = symbol_short!("lob_hash");
 const PENDING_FEE_CHANGE: Symbol = symbol_short!("PEND_FEE");
 const FEES: Symbol = symbol_short!("FEES");
 
+// TTL: keep the factory's own state alive. without this the singleton keys
+// (admin, wasm hash, pool count, fee) expire under rent and create_pool starts
+// reverting. mirrors the vault's 6-month horizon.
+const DAY_IN_LEDGERS: u32 = 17280;
+const MONTH_IN_LEDGERS: u32 = DAY_IN_LEDGERS * 30;
+const MAX_TTL: u32 = MONTH_IN_LEDGERS * 6;
+const TTL_THRESHOLD: u32 = MAX_TTL - MONTH_IN_LEDGERS;
+
+// ceiling on the performance fee the factory sets or announces, 20%. matches the
+// vault's own MAX_FEE_BPS.
+const MAX_FEE_BPS: u32 = 2_000;
+
+// trusted Soroswap router for the network, set once at construction and baked
+// into every vault the factory deploys, so a vault never trusts a caller-supplied
+// router for the add path.
+const SW_ROUTER: Symbol = symbol_short!("SW_ROUTER");
+
 // Add this struct after LobsterPools
 #[contracttype]
 #[derive(Clone)]
@@ -65,9 +82,38 @@ impl Factory {
         true
     }
 
-    /// Reentrancy guard exit: clears the temporary flag.
-    pub fn exit_reentrancy(env: &Env) {
+    /// Reentrancy guard exit: clears the temporary flag. Not an exported entry.
+    fn exit_reentrancy(env: &Env) {
         env.storage().temporary().set(&KEY_RENTR, &false);
+    }
+
+    /// Extend the TTL of the factory instance and its singleton state keys.
+    /// Called from the state-changing entries so the factory does not expire
+    /// while it is in use. Per-pool index entries are not bumped here (unbounded);
+    /// the off-chain monitor and per-pool reads keep those alive.
+    fn extend_state_ttl(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, MAX_TTL);
+        for key in [&ADMIN, &LOBSTER_WASM_HASH, &LOBSTER_POOL_COUNT, &FEES, &SW_ROUTER] {
+            if env.storage().persistent().has(key) {
+                env.storage()
+                    .persistent()
+                    .extend_ttl(key, TTL_THRESHOLD, MAX_TTL);
+            }
+        }
+    }
+
+    /// Emergency reset of the reentrancy flag if a panic left it stuck. Admin only,
+    /// so a stranger cannot clear the guard mid-call.
+    pub fn reset_reentrancy(env: Env) {
+        let admin: Address = env
+            .storage()
+            .persistent()
+            .get::<Symbol, Address>(&ADMIN)
+            .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
+        admin.require_auth();
+        Self::exit_reentrancy(&env);
     }
 
     /// Initializes the Factory contract with admin, WASM hash for deployment, and fee configuration.
@@ -75,12 +121,19 @@ impl Factory {
     /// # Parameters
     /// - `admin`: The address of the factory admin who can manage settings
     /// - `wasm_hash`: Hash of the Lobster contract WASM for deterministic deployment
-    /// - `fee_bps`: Default fee percentage in basis points (0-10000, where 10000 = 100%)
+    /// - `fee_bps`: default performance fee in basis points, capped at MAX_FEE_BPS (2000 = 20%)
+    /// - `soroswap_router`: trusted Soroswap router baked into every deployed vault
     /// 
     /// # Panics
     /// - If contract is already initialized
-    /// - If fee_bps exceeds 10000
-    pub fn __constructor(env: Env, admin: Address, wasm_hash: BytesN<32>, fee_bps: u32) {
+    /// - If fee_bps exceeds MAX_FEE_BPS
+    pub fn __constructor(
+        env: Env,
+        admin: Address,
+        wasm_hash: BytesN<32>,
+        fee_bps: u32,
+        soroswap_router: Address,
+    ) {
         // Prevent re-initialization: check if contract is already initialized
         if env.storage().persistent().has(&ADMIN) {
             panic_with_error!(env, ContractError::AlreadyInitialized);
@@ -88,12 +141,13 @@ impl Factory {
 
         admin.require_auth();
 
-        // Validate fee value (0-10000 basis points = 0-100%)
-        if fee_bps > 10000 {
+        // fee is a cut of profit, capped at MAX_FEE_BPS
+        if fee_bps > MAX_FEE_BPS {
             panic_with_error!(env, ContractError::InvalidFeeValue);
         }
 
         env.storage().persistent().set(&ADMIN, &admin);
+        env.storage().persistent().set(&SW_ROUTER, &soroswap_router);
 
         let lobster_pools: Vec<LobsterPools> = Vec::new(&env);
 
@@ -133,6 +187,8 @@ impl Factory {
         if !env.storage().persistent().has(&ADMIN) {
             panic_with_error!(env, ContractError::NotInitialized);
         }
+
+        Self::extend_state_ttl(&env);
 
         if !Self::enter_reentrancy(&env) {
             panic_with_error!(env, ContractError::AlreadyExists); // or appropriate error
@@ -198,6 +254,14 @@ impl Factory {
         };
         let fee_bps = env.storage().persistent().get(&FEES).unwrap_or(0u32);
 
+        // trusted Soroswap router baked into the vault so it never trusts a
+        // caller-supplied router on the add path
+        let sw_router: Address = env
+            .storage()
+            .persistent()
+            .get(&SW_ROUTER)
+            .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
+
         let deploy_args: Vec<Val> = vec![
             &env,
             user.clone().into_val(&env),
@@ -205,6 +269,7 @@ impl Factory {
             token0.into_val(&env),
             token1.into_val(&env),
             fee_bps.into_val(&env),
+            sw_router.into_val(&env),
         ];
 
         let deployed_address = env
@@ -445,6 +510,7 @@ impl Factory {
             .get(&ADMIN)
             .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
         current_admin.require_auth();
+        Self::extend_state_ttl(&env);
         env.storage().persistent().set(&ADMIN, &new_admin);
     }
 
@@ -469,6 +535,7 @@ impl Factory {
             .get(&ADMIN)
             .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
         admin.require_auth();
+        Self::extend_state_ttl(&env);
         env.storage()
             .persistent()
             .set(&LOBSTER_WASM_HASH, &wasm_hash);
@@ -480,7 +547,7 @@ impl Factory {
     /// This provides transparency and allows users to prepare for fee changes.
     /// 
     /// # Parameters
-    /// - `new_fee_bps`: New fee value in basis points (0-10000, where 10000 = 100%)
+    /// - `new_fee_bps`: new fee in basis points, capped at MAX_FEE_BPS (2000 = 20%)
     /// 
     /// # Access
     /// Only admin
@@ -488,7 +555,7 @@ impl Factory {
     /// # Panics
     /// - If contract is not initialized
     /// - If caller is not the admin
-    /// - If new_fee_bps exceeds 10000
+    /// - If new_fee_bps exceeds MAX_FEE_BPS
     /// - If a fee change is already pending
     pub fn announce_fee_change(env: Env, new_fee_bps: u32) {
         if !env.storage().persistent().has(&ADMIN) {
@@ -502,8 +569,8 @@ impl Factory {
             .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
         admin.require_auth();
 
-        // Validate fee value (0-10000 basis points = 0-100%)
-        if new_fee_bps > 10000 {
+        // fee is a cut of profit, capped at MAX_FEE_BPS
+        if new_fee_bps > MAX_FEE_BPS {
             panic_with_error!(env, ContractError::InvalidFeeValue);
         }
 

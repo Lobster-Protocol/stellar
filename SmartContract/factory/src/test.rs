@@ -57,6 +57,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -97,6 +98,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -156,6 +158,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -210,6 +213,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -241,6 +245,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -269,6 +274,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -295,6 +301,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -319,6 +326,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -346,6 +354,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -369,6 +378,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -403,6 +413,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -432,6 +443,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -454,6 +466,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -477,6 +490,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -500,6 +514,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -526,6 +541,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -555,6 +571,7 @@ mod tests {
             admin.clone().into_val(&env),
             wasm_hash.into_val(&env),
             fee_bps.into_val(&env),
+            Address::generate(&env).into_val(&env),
         ];
 
         let factory_id = env.register(Factory, deploy_args);
@@ -569,5 +586,57 @@ mod tests {
         // Get pools using reversed order - should still find it
         let pools2 = factory.get_pools_by_tokens(&token1.address, &token0.address);
         assert_eq!(pools2.len(), 1);
+    }
+
+    // the factory caps the fee it bakes into vaults at 20% (2000 bps).
+    #[test]
+    #[should_panic]
+    fn test_constructor_rejects_fee_above_cap() {
+        let env = create_test_env();
+        let admin = Address::generate(&env);
+        let wasm_hash = install_lobster_wasm(&env);
+        let deploy_args: Vec<Val> = vec![
+            &env,
+            admin.into_val(&env),
+            wasm_hash.into_val(&env),
+            2001u32.into_val(&env),
+            Address::generate(&env).into_val(&env),
+        ];
+        env.register(Factory, deploy_args);
+    }
+
+    // control: a fee exactly at the cap constructs cleanly.
+    #[test]
+    fn test_constructor_accepts_fee_at_cap() {
+        let env = create_test_env();
+        let admin = Address::generate(&env);
+        let wasm_hash = install_lobster_wasm(&env);
+        let deploy_args: Vec<Val> = vec![
+            &env,
+            admin.clone().into_val(&env),
+            wasm_hash.into_val(&env),
+            2000u32.into_val(&env),
+            Address::generate(&env).into_val(&env),
+        ];
+        let factory_id = env.register(Factory, deploy_args);
+        assert_eq!(FactoryClient::new(&env, &factory_id).get_admin(), admin);
+    }
+
+    // an announced fee change is capped the same way.
+    #[test]
+    #[should_panic]
+    fn test_announce_fee_change_rejects_above_cap() {
+        let env = create_test_env();
+        let admin = Address::generate(&env);
+        let wasm_hash = install_lobster_wasm(&env);
+        let deploy_args: Vec<Val> = vec![
+            &env,
+            admin.into_val(&env),
+            wasm_hash.into_val(&env),
+            100u32.into_val(&env),
+            Address::generate(&env).into_val(&env),
+        ];
+        let factory = FactoryClient::new(&env, &env.register(Factory, deploy_args));
+        factory.announce_fee_change(&2001u32);
     }
 }

@@ -4,7 +4,7 @@ This directory contains Soroban smart contracts for the Lobster project.
 It is a standalone Cargo workspace aligned with the `soroban-amm` toolchain and dependency versions.
 
 ### Prerequisites
-- Rust toolchain (rustup) with channel pinned in `rust-toolchain.toml` (1.87.0)
+- Rust toolchain (rustup) with channel pinned in `rust-toolchain.toml` (nightly-2025-08-07)
 - Target: `wasm32v1-none`
 - Soroban CLI: `cargo install soroban-cli --locked`
 - Optional: `go-task` to run tasks in `Taskfile.yaml`
@@ -16,8 +16,8 @@ command -v rustup >/dev/null 2>&1 || curl --proto "=https" --tlsv1.2 -sSf https:
 source "$HOME/.cargo/env"
 
 # Pin toolchain & add target (these are also declared in rust-toolchain.toml)
-rustup toolchain install 1.87.0
-rustup target add wasm32v1-none --toolchain 1.87.0
+rustup toolchain install nightly-2025-08-07
+rustup target add wasm32v1-none --toolchain nightly-2025-08-07
 
 # Soroban CLI
 cargo install soroban-cli --locked
@@ -27,8 +27,8 @@ cargo install soroban-cli --locked
 - `Cargo.toml` (workspace): pins versions matching `soroban-amm`
 - `rust-toolchain.toml`: Rust channel and target
 - `Taskfile.yaml`: common tasks (build/test/optimize)
-- `token/`: example token contract (uses workspace deps)
-- `lobster/`: second contract crate (same dependency scheme)
+- `lobster/`: vault (pool) contract crate
+- `factory/`: pool factory crate
 - `contracts/`: build output for optimized `.wasm`
 
 ### Build
@@ -81,12 +81,9 @@ soroban contract invoke --id <CONTRACT_ID> --fn <function> --arg <json-arg>
 - If you update `soroban-amm` versions, update `[workspace.dependencies]` here accordingly.
 
 
-Factory Contract ID
-CBUU4MUZHWPCRLSPHHYN5YLNMEX67EYSFBN5GQJ4VVTKMFUBNS6YZAV4
+mainnet factory
+CAFGQVKFCZITN7UJUOIJPMULGZRUR7RXG6DAYJ2VBGIGFWHHFGR6MCR5
 
-Type Example Lobster
-CBKNLTJBJEWGQQ6V3BBRPDFE2ATZF22QJZX77B5DR6D5ILTMQNGQVRVX
-
-Multisig
-Signer GC36G4RGOAHISGQUKDVBBSEX63E2VHMGRJ3NYHZPYGB65IMTRHCR4GW3
-Contract CCNHYCMBEZFWDRYMWHWB52MRCRLFEORSOK5QYWUZXYSLFKQSO2PRWYYZ
+wasm hashes (pinned toolchain + stellar contract optimize)
+vault   a72a67ac4b9fa0ad561032d8d433d4da0024100cdb27f9098cb89997243b8382
+factory cd12142a580641ef92a99f9464a667be5851e8c221c632ce50f99e964553a732

@@ -4,7 +4,7 @@
 
 use crate::{Lobster, LobsterClient};
 use soroban_sdk::{
-    Address, Env, Symbol, Vec, contract, contractimpl, symbol_short, testutils::{Address as _, Ledger, LedgerInfo}, token, vec, Val, IntoVal
+    Address, Env, Vec, contract, contractimpl, symbol_short, testutils::{Address as _, Ledger, LedgerInfo}, token, vec, Val, IntoVal
 };
 
 // Mock Soroswap Pool Contract (acts as LP token too)
@@ -18,8 +18,17 @@ impl MockSoroswapPool {
         Address::generate(&env)
     }
 
-    pub fn get_reserves(_env: Env) -> (i128, i128) {
-        (1000i128, 2000i128)
+    // reserves default to (1000, 2000); a test can override to exercise the
+    // zero-reserve guard and the reserve-dependent quote math.
+    pub fn get_reserves(env: Env) -> (i128, i128) {
+        let r0 = env.storage().persistent().get(&symbol_short!("R0")).unwrap_or(1000i128);
+        let r1 = env.storage().persistent().get(&symbol_short!("R1")).unwrap_or(2000i128);
+        (r0, r1)
+    }
+
+    pub fn set_reserves(env: Env, r0: i128, r1: i128) {
+        env.storage().persistent().set(&symbol_short!("R0"), &r0);
+        env.storage().persistent().set(&symbol_short!("R1"), &r1);
     }
 
     // LP balance of an account (pool is LP token)
@@ -50,6 +59,12 @@ impl MockSoroswapRouter {
             .persistent()
             .get(&symbol_short!("POOL"))
             .unwrap_or_else(|| Address::generate(&env))
+    }
+
+    // Uniswap-style quote: amount_b = amount_a * reserve_b / reserve_a. Matches
+    // the real SoroswapRouter::router_quote the contract calls.
+    pub fn router_quote(_env: Env, amount_a: i128, reserve_a: i128, reserve_b: i128) -> i128 {
+        amount_a * reserve_b / reserve_a
     }
 
     // Router add_liquidity returns (amountA, amountB, liquidity)
@@ -140,6 +155,13 @@ impl SoroswapTestSetup {
         token0_admin.mint(&owner, &1000000);
         token1_admin.mint(&owner, &1000000);
 
+        // Mock pool and router first, so the vault is constructed with the mock
+        // router as its trusted Soroswap router.
+        let mock_pool = create_mock_soroswap_pool(&env);
+        let mock_soroswap_pool_address = mock_pool.address.clone();
+        let mock_router = create_mock_soroswap_router(&env, &mock_soroswap_pool_address);
+        let mock_soroswap_router_address = mock_router.address.clone();
+
         // Deploy lobster with initialization args
         let deploy_args: Vec<Val> = vec![
             &env,
@@ -148,15 +170,10 @@ impl SoroswapTestSetup {
             token0.address.into_val(&env),
             token1.address.into_val(&env),
             100u32.into_val(&env),
+            mock_soroswap_router_address.clone().into_val(&env),
         ];
 
         let lobster_id = env.register(Lobster, deploy_args);
-
-        // Mock pool and router
-        let mock_pool = create_mock_soroswap_pool(&env);
-        let mock_soroswap_pool_address = mock_pool.address.clone();
-        let mock_router = create_mock_soroswap_router(&env, &mock_soroswap_pool_address);
-        let mock_soroswap_router_address = mock_router.address.clone();
 
         SoroswapTestSetup {
             env,
@@ -273,4 +290,262 @@ fn test_get_lp_soroswap_balance() {
     assert_eq!(lp_balance, 1000);
 }
 
+// helper: register a fresh vault with explicit tokens and fee, on the setup's env.
+fn register_vault(setup: &SoroswapTestSetup, token0: &Address, token1: &Address, fee_bps: u32) -> LobsterClient<'static> {
+    let args: Vec<Val> = vec![
+        &setup.env,
+        setup.owner.clone().into_val(&setup.env),
+        setup.multisig.clone().into_val(&setup.env),
+        token0.into_val(&setup.env),
+        token1.into_val(&setup.env),
+        fee_bps.into_val(&setup.env),
+        setup.mock_soroswap_router_address.clone().into_val(&setup.env),
+    ];
+    LobsterClient::new(&setup.env, &setup.env.register(Lobster, args))
+}
 
+// a vault is a pair of two distinct tokens; the constructor must reject a
+// same-token "pair" rather than store an undefined ordering.
+#[test]
+#[should_panic(expected = "Error(Contract, #567)")]
+fn test_constructor_rejects_identical_tokens() {
+    let setup = SoroswapTestSetup::new();
+    let t = setup.token0_address.clone();
+    register_vault(&setup, &t, &t, 100u32);
+}
+
+// the fee is a cut of profit; the constructor caps it at 20% (2000 bps).
+#[test]
+#[should_panic(expected = "Error(Contract, #561)")]
+fn test_constructor_rejects_fee_above_cap() {
+    let setup = SoroswapTestSetup::new();
+    let t0 = setup.token0_address.clone();
+    let t1 = setup.token1_address.clone();
+    register_vault(&setup, &t0, &t1, 2001u32);
+}
+
+// control: a fee at exactly the cap constructs cleanly.
+#[test]
+fn test_constructor_accepts_fee_at_cap() {
+    let setup = SoroswapTestSetup::new();
+    let t0 = setup.token0_address.clone();
+    let t1 = setup.token1_address.clone();
+    let v = register_vault(&setup, &t0, &t1, 2000u32);
+    assert_eq!(v.get_owner(), setup.owner);
+}
+
+// rotating the admin is an owner power. the admin must not be able to do it.
+#[test]
+#[should_panic(expected = "Error(Contract, #401)")]
+fn test_set_multisig_rejects_admin() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    let new_admin = Address::generate(&setup.env);
+    lobster.set_multisig(&setup.multisig, &new_admin);
+}
+
+// control: the owner can rotate the admin.
+#[test]
+fn test_set_multisig_allows_owner() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    let new_admin = Address::generate(&setup.env);
+    lobster.set_multisig(&setup.owner, &new_admin);
+    assert_eq!(lobster.get_multisig(), new_admin);
+}
+
+// a withdraw must target the pool the position was opened on. a different pool,
+// even with the real router, is rejected before any LP is touched.
+#[test]
+#[should_panic(expected = "Error(Contract, #565)")]
+fn test_withdraw_soroswap_rejects_wrong_pool() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.deposit(&setup.owner, &1000i128, &2000i128);
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+    let other_pool = Address::generate(&setup.env);
+    lobster.withdraw_soroswap(
+        &setup.owner, &0i128, &0i128,
+        &other_pool, &setup.mock_soroswap_router_address, &999999999u64,
+    );
+}
+
+// same for the router: the withdraw must route through the recorded router.
+#[test]
+#[should_panic(expected = "Error(Contract, #565)")]
+fn test_withdraw_soroswap_rejects_wrong_router() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.deposit(&setup.owner, &1000i128, &2000i128);
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+    let other_router = Address::generate(&setup.env);
+    lobster.withdraw_soroswap(
+        &setup.owner, &0i128, &0i128,
+        &setup.mock_soroswap_pool_address, &other_router, &999999999u64,
+    );
+}
+
+
+
+// the add path only trusts the Soroswap router set at construction. a different
+// router, even a well-formed one, is rejected before any transfer is authorized.
+#[test]
+#[should_panic(expected = "Error(Contract, #568)")]
+fn test_add_liquidity_soroswap_rejects_untrusted_router() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.deposit(&setup.owner, &1000i128, &2000i128);
+    let evil_pool = create_mock_soroswap_pool(&setup.env);
+    let evil_router = create_mock_soroswap_router(&setup.env, &evil_pool.address);
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &evil_router.address,
+    );
+}
+
+// get_actual_share returns the LP token address for the active position. For
+// Soroswap the pair contract is the LP token, so it equals the active pool.
+#[test]
+fn test_get_actual_share_soroswap() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.deposit(&setup.owner, &1000i128, &2000i128);
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+    assert_eq!(lobster.get_actual_share(), setup.mock_soroswap_pool_address);
+}
+
+// with no open position, get_actual_share reverts cleanly instead of decoding a
+// non-Address sentinel.
+#[test]
+#[should_panic(expected = "Error(Contract, #566)")]
+fn test_get_actual_share_no_position() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.get_actual_share();
+}
+
+// after a full open then withdraw cycle the vault is idle again and the getters
+// do not trap: the Address-typed position slots were removed, not zero-poisoned.
+#[test]
+fn test_state_clean_after_withdraw_cycle() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.deposit(&setup.owner, &1000i128, &2000i128);
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+    lobster.withdraw_soroswap(
+        &setup.owner, &0i128, &0i128,
+        &setup.mock_soroswap_pool_address, &setup.mock_soroswap_router_address, &999999999u64,
+    );
+    assert_eq!(lobster.get_active_protocol(), 5i128);
+}
+
+// the multisig admin (not only the owner) is authorized on the gated paths. this
+// covers the admin branch of require_owner_or_admin, and the position opens.
+#[test]
+fn test_add_liquidity_soroswap_by_admin() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.add_liquidity_soroswap(
+        &setup.multisig, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+    assert_eq!(lobster.get_active_protocol(), 0i128);
+}
+
+// get_reserves returns the pool's actual reserves (not a constant), on the only
+// supported protocol (0 = Soroswap).
+#[test]
+fn test_get_reserves_returns_actual() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    let (r0, r1) = lobster.get_reserves(&setup.mock_soroswap_pool_address, &0u32);
+    assert_eq!((r0, r1), (1000i128, 2000i128));
+}
+
+// a zero on either reserve reverts (ZeroReserves), so the price/quote math never
+// divides by zero.
+#[test]
+#[should_panic(expected = "Error(Contract, #551)")]
+fn test_get_reserves_zero_reverts() {
+    let setup = SoroswapTestSetup::new();
+    setup.mock_soroswap_pool_client().set_reserves(&0i128, &2000i128);
+    let lobster = setup.lobster_client();
+    lobster.get_reserves(&setup.mock_soroswap_pool_address, &0u32);
+}
+
+// get_reserves only supports protocol 0; any other identifier reverts.
+#[test]
+#[should_panic(expected = "Error(Contract, #550)")]
+fn test_get_reserves_rejects_non_soroswap() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.get_reserves(&setup.mock_soroswap_pool_address, &1u32);
+}
+
+// add_liquidity_soroswap, "b optimal" branch: when the optimal amount of the
+// second token falls below the caller's minimum, it reverts (InsufficientBAmount).
+// with the mock reserves (1000/2000) and the pool ordering, amount1*2 = 200 is the
+// optimal second leg and 200 < the 500 minimum.
+#[test]
+#[should_panic(expected = "Error(Contract, #406)")]
+fn test_add_liquidity_soroswap_b_below_min() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &1000i128, &100i128, &500i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+}
+
+// add_liquidity_soroswap, "a optimal" branch: the other side of the selector, where
+// the optimal amount of the first token falls below its minimum (InsufficientAAmount).
+#[test]
+#[should_panic(expected = "Error(Contract, #405)")]
+fn test_add_liquidity_soroswap_a_below_min() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &100i128, &1000i128, &0i128, &500i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+}
+
+// a profitable exit pays the performance fee to LOBSTER on both legs. This drives
+// get_fee_cut to a positive result and exercises the fee-transfer gating in
+// withdraw_soroswap: deposit, open, revalue the pool upward, then withdraw.
+#[test]
+fn test_withdraw_soroswap_collects_fee_on_profit() {
+    let setup = SoroswapTestSetup::new();
+    let lobster = setup.lobster_client();
+    let token0 = setup.token0_client();
+    let token1 = setup.token1_client();
+    assert_eq!(token0.balance(&setup.multisig), 0);
+    assert_eq!(token1.balance(&setup.multisig), 0);
+
+    lobster.deposit(&setup.owner, &1000i128, &2000i128);
+    lobster.add_liquidity_soroswap(
+        &setup.owner, &500i128, &250i128, &0i128, &0i128,
+        &999999999u64, &setup.mock_soroswap_router_address,
+    );
+    // exit values the position higher than entry, so there is a profit to fee
+    setup.mock_soroswap_pool_client().set_reserves(&1000i128, &1000i128);
+    lobster.withdraw_soroswap(
+        &setup.owner, &0i128, &0i128,
+        &setup.mock_soroswap_pool_address, &setup.mock_soroswap_router_address, &999999999u64,
+    );
+
+    assert!(token0.balance(&setup.multisig) > 0, "no fee leg reached LOBSTER on token0");
+    assert!(token1.balance(&setup.multisig) > 0, "no fee leg reached LOBSTER on token1");
+}
