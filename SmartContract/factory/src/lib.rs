@@ -34,7 +34,7 @@ const LOBSTER_POOL_TOKEN: Symbol = symbol_short!("lob_token");
 
 const LOBSTER_WASM_HASH: Symbol = symbol_short!("lob_hash");
 
-// Add these constants after the existing ones
+// the current fee, and a change to it waiting out its notice
 const PENDING_FEE_CHANGE: Symbol = symbol_short!("PEND_FEE");
 const FEES: Symbol = symbol_short!("FEES");
 
@@ -55,7 +55,7 @@ const MAX_FEE_BPS: u32 = 2_000;
 // router for the add path.
 const SW_ROUTER: Symbol = symbol_short!("SW_ROUTER");
 
-// Add this struct after LobsterPools
+// kept under PENDING_FEE_CHANGE until execute_fee_change applies it
 #[contracttype]
 #[derive(Clone)]
 pub struct PendingFeeChange {
@@ -191,7 +191,7 @@ impl Factory {
         Self::extend_state_ttl(&env);
 
         if !Self::enter_reentrancy(&env) {
-            panic_with_error!(env, ContractError::AlreadyExists); // or appropriate error
+            panic_with_error!(env, ContractError::AlreadyExists); // re-entered mid create_pool
         }
         user.require_auth();
 
@@ -240,8 +240,8 @@ impl Factory {
             .get::<Symbol, BytesN<32>>(&LOBSTER_WASM_HASH)
             .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
 
-        // Generate salt from timestamp
-        // Generate salt from timestamp + pool_count to ensure uniqueness
+        // the salt comes from token0, token1 and the user, so the vault address
+        // follows from those three and the factory's own address
 
         let salt = {
             let mut salt_data = Bytes::new(&env);
@@ -541,7 +541,7 @@ impl Factory {
             .set(&LOBSTER_WASM_HASH, &wasm_hash);
     }
 
-    // Add these functions at the end of the impl Factory block, before the closing brace
+    // fee changes: announce_fee_change starts a 14-day notice, execute_fee_change applies it
 
     /// Announces a fee change, starting a 2-week delay period before execution.
     /// This provides transparency and allows users to prepare for fee changes.

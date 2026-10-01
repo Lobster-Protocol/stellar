@@ -13,7 +13,7 @@ FACTORY_ID="CA4HEQTL2WPEUYKYKCDOHCDNIV4QHNJ7EL4J4NQ6VADP7SYHVRYZ7AW2"
 SOURCE_ACCOUNT="${SOURCE_ACCOUNT:-alice2}"
 NETWORK="${NETWORK:-mainnet}"
 
-echo "🔄 Step 1: Getting pool count..."
+echo "Step 1: Getting pool count..."
 
 # Get the pool count
 LENGTH_OUTPUT=$(
@@ -40,7 +40,7 @@ while IFS= read -r line; do
 done <<< "$LENGTH_OUTPUT"
 
 if [ -z "$LENGTH" ]; then
-  echo "❌ Error: Could not extract pool count from output"
+  echo "Error: Could not extract pool count from output"
   echo "Output was:"
   echo "$LENGTH_OUTPUT"
   exit 1
@@ -51,7 +51,7 @@ echo "   Found $LENGTH pools"
 # Convert to integer for loop
 LENGTH_INT=$((LENGTH))
 
-echo "🔄 Step 2: Getting pool addresses..."
+echo "Step 2: Getting pool addresses..."
 
 # Get all pool addresses
 POOL_ADDRESSES=()
@@ -86,7 +86,7 @@ for i in $(seq 0 $((LENGTH_INT - 1))); do
   done <<< "$PAIR_OUTPUT"
   
   if [ -z "$POOL_ADDR" ]; then
-    echo "   ⚠️  Warning: Could not extract pool address for index $i"
+    echo "   Warning: Could not extract pool address for index $i"
     continue
   fi
   
@@ -95,7 +95,7 @@ done
 
 echo "   Found ${#POOL_ADDRESSES[@]} pool addresses"
 
-echo "🔄 Step 3: Getting token addresses for each pool..."
+echo "Step 3: Getting token addresses for each pool..."
 
 # Create a temporary file to store results
 TEMP_JSON=$(mktemp)
@@ -154,7 +154,7 @@ for pool_addr in "${POOL_ADDRESSES[@]}"; do
   done <<< "$TOKEN_1_OUTPUT"
   
   if [ -z "$TOKEN_0" ] || [ -z "$TOKEN_1" ]; then
-    echo "   ⚠️  Warning: Could not extract tokens for pool $pool_addr"
+    echo "   Warning: Could not extract tokens for pool $pool_addr"
     continue
   fi
   
@@ -205,6 +205,6 @@ POOL_COUNT=$(node -e "const fs = require('fs'); const pools = JSON.parse(fs.read
 # Clean up temp files
 rm "$TEMP_JSON" "$TEMP_SCRIPT"
 
-echo "✅ Generated TypeScript file: $OUTPUT_FILE"
+echo "Generated TypeScript file: $OUTPUT_FILE"
 echo "   Found $POOL_COUNT pools"
 

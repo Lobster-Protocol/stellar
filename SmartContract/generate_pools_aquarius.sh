@@ -38,7 +38,7 @@ extract_json() {
   fi
 }
 
-echo "🔄 Step 1: Getting Aquarius token set count..."
+echo "Step 1: Getting Aquarius token set count..."
 
 LENGTH_OUTPUT=$(
   stellar contract invoke \
@@ -66,7 +66,7 @@ while IFS= read -r line; do
 done <<< "$LENGTH_OUTPUT"
 
 if [ -z "$LENGTH" ]; then
-  echo "❌ Error: Could not extract token set count from output"
+  echo "Error: Could not extract token set count from output"
   echo "$LENGTH_OUTPUT"
   exit 1
 fi
@@ -82,7 +82,7 @@ FIRST=true
 START_INDEX=0
 LENGTH_INT=$((LENGTH))
 
-echo "🔄 Step 2: Fetching pools from Aquarius router..."
+echo "Step 2: Fetching pools from Aquarius router..."
 
 while [ "$START_INDEX" -lt "$LENGTH_INT" ]; do
   END_INDEX=$((START_INDEX + CHUNK_SIZE))
@@ -107,7 +107,7 @@ while [ "$START_INDEX" -lt "$LENGTH_INT" ]; do
   JSON_PAYLOAD=$(extract_json "$RANGE_OUTPUT")
 
   if [ -z "$JSON_PAYLOAD" ]; then
-    echo "   ⚠️  Warning: No JSON data returned for range [$START_INDEX, $END_INDEX)"
+    echo "   Warning: No JSON data returned for range [$START_INDEX, $END_INDEX)"
     START_INDEX=$END_INDEX
     continue
   fi
@@ -167,7 +167,7 @@ done
 echo "" >> "$TEMP_RESULTS"
 echo "]" >> "$TEMP_RESULTS"
 
-echo "🔄 Step 3: Writing TypeScript file..."
+echo "Step 3: Writing TypeScript file..."
 
 TS_CONTENT=$(
   node - "$TEMP_RESULTS" <<'NODE'
@@ -193,6 +193,6 @@ echo "$TS_CONTENT" > "$OUTPUT_FILE"
 
 rm "$TEMP_RESULTS"
 
-echo "✅ Generated TypeScript file: $OUTPUT_FILE"
+echo "Generated TypeScript file: $OUTPUT_FILE"
 echo "   Found $TOTAL_POOLS pools"
 

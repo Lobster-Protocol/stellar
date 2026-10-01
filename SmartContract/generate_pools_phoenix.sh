@@ -13,7 +13,7 @@ PHOENIX_FACTORY_ID="${PHOENIX_FACTORY_ID:-CB4SVAWJA6TSRNOJZ7W2AWFW46D5VR4ZMFZKDI
 SOURCE_ACCOUNT="${SOURCE_ACCOUNT:-alice2}"
 NETWORK="${NETWORK:-mainnet}"
 
-echo "🔄 Querying Phoenix factory for pool details..."
+echo "Querying Phoenix factory for pool details..."
 
 OUTPUT=$(
   stellar contract invoke \
@@ -45,7 +45,7 @@ while IFS= read -r line; do
 done <<< "$OUTPUT"
 
 if [ -z "$JSON_DATA" ]; then
-  echo "❌ Error: Could not extract JSON data from output"
+  echo "Error: Could not extract JSON data from output"
   echo "Output was:"
   echo "$OUTPUT"
   exit 1
@@ -100,6 +100,6 @@ POOL_COUNT=$(node -e "const fs = require('fs'); const pools = JSON.parse(fs.read
 # Clean up temp files
 rm "$TEMP_JSON" "$TEMP_SCRIPT"
 
-echo "✅ Generated TypeScript file: $OUTPUT_FILE"
+echo "Generated TypeScript file: $OUTPUT_FILE"
 echo "   Found $POOL_COUNT pools"
 

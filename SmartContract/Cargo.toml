@@ -11,9 +11,8 @@ version = "1.7.0"
 rust-version = "1.87"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/your-org/"
+repository = "https://github.com/Lobster-Protocol/Stellar"
 
-# Add this profile section
 [profile.release]
 overflow-checks = true
 

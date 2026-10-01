@@ -30,8 +30,8 @@ const KEY_RENTR: Symbol = symbol_short!("KEY_RENTR");
 // pre-authorized token transfers; the pool is derived from this trusted router.
 const SW_ROUTER: Symbol = symbol_short!("SW_ROUTER");
 
-// Add these storage keys
-const FEE_CUT_BPS: Symbol = symbol_short!("FEE_BPS"); // Your fee percentage (e.g., 100 = 1%)
+// performance fee, and the token balances deposited so far
+const FEE_CUT_BPS: Symbol = symbol_short!("FEE_BPS"); // in bps, 100 = 1%
 const LAST_POOL_BALANCE_A: Symbol = symbol_short!("LAST_A");
 const LAST_POOL_BALANCE_B: Symbol = symbol_short!("LAST_B");
 
@@ -125,7 +125,7 @@ impl Lobster {
     /// Ensures that `caller` is either the pool `owner` or the multisig `admin`.
     /// Requires the caller's signature and aborts with `NotAuthorized` otherwise.
     fn require_owner_or_admin(env: &Env, caller: Address) {
-        // First require authentication to ensure the caller is properly signed
+        // signature first, before any storage read
         caller.require_auth();
 
         // Check if contract is initialized
@@ -635,8 +635,8 @@ impl Lobster {
             pool_token0.unwrap_or_else(|_| {
                 panic_with_error!(env, ContractError::PoolToken0QueryFailed);
             }),
-            amount0, // if you have these variables
-            amount1, // if you have these variables
+            amount0,
+            amount1,
             amount0_min,
             amount1_min,
         );
@@ -897,8 +897,8 @@ impl Lobster {
             pool_token0.unwrap_or_else(|_| {
                 panic_with_error!(env, ContractError::PoolToken0QueryFailed);
             }),
-            0i128, // if you have these variables
-            0i128, // if you have these variables
+            0i128, // amounts unused here, only the mins
+            0i128,
             amount0_min,
             amount1_min,
         );
@@ -960,7 +960,7 @@ impl Lobster {
         let init_token0_tvl: i128 = env.storage().persistent().get(&TOKEN0_TVL).unwrap();
         let init_token1_tvl: i128 = env.storage().persistent().get(&TOKEN1_TVL).unwrap();
 
-        // Add validation
+        // a negative init TVL would bill a fee bigger than the position
         if init_token0_tvl.clone() < 0 || init_token1_tvl.clone() < 0 {
             panic_with_error!(env, ContractError::ContractMathError);
         }
@@ -1387,7 +1387,7 @@ impl Lobster {
         let lobster_address: Address = env.storage().persistent().get(&LOBSTER)
             .unwrap_or_else(|| panic_with_error!(env, ContractError::NotInitialized));
 
-        // Add authorization for the transfer
+        // the vault authorizes the token's transfer out of its own balance
         env.authorize_as_current_contract(vec![
             &env,
             InvokerContractAuthEntry::Contract(SubContractInvocation {
