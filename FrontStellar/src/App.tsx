@@ -143,7 +143,6 @@ async function fetchWalletTokenBalance(
 const runtimeEnv = (import.meta as { env?: Record<string, string> }).env ?? {};
 const NETWORK = (runtimeEnv.VITE_NETWORK ?? 'testnet') as 'mainnet' | 'testnet';
 
-// Determine network configuration based on VITE_NETWORK
 const isMainnet = NETWORK === 'mainnet';
 const FACTORY_CONTRACT_ID = runtimeEnv.VITE_FACTORY_CONTRACT ?? (
   isMainnet ? factoryNetworks.public.contractId : factoryNetworks.testnet.contractId
@@ -154,6 +153,7 @@ const FACTORY_NETWORK_PASSPHRASE = runtimeEnv.VITE_FACTORY_NETWORK ?? (
 const FACTORY_RPC_URL = runtimeEnv.VITE_FACTORY_RPC ?? (
   isMainnet ? 'https://soroban-rpc.creit.tech' : 'https://soroban-testnet.stellar.org'
 );
+const DECISION_TAKER_URL = (runtimeEnv.VITE_DECISION_TAKER_URL ?? 'http://localhost:3334').replace(/\/+$/, '');
 
 const tokenClientCache = new Map<string, TokenContract>();
 function getTokenReadClient(contractId: string, sourceAddress: string): TokenContract {
@@ -213,10 +213,8 @@ function App() {
   });
   const [walletTokenBalances, setWalletTokenBalances] = useState<Record<string, number>>({});
 
-  // Fetch pools from on-chain when wallet is connected
   useEffect(() => {
     if (!isConnected || !walletAddress || !signTransaction) {
-      // Show empty state when not connected
       setPools([]);
       setLoading(false);
       return;
@@ -229,10 +227,9 @@ function App() {
         const onChainPools = await fetchUserPools(walletAddress, signTransaction);
         console.log('Fetched pools:', onChainPools);
 
-        // Convert on-chain pool data to Pool format
         const convertedPools: Pool[] = onChainPools.map(transformPoolData);
 
-        // Replace all pools with fetched ones (this is the source of truth)
+        // The chain is the source of truth, so replace the list instead of merging.
         setPools(convertedPools);
         setAddForm((prev) => ({ ...prev, poolId: prev.poolId || convertedPools[0]?.id || '' }));
       } catch (error) {
@@ -247,7 +244,6 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        // Load token list based on network
         const tokenListFile = isMainnet ? '/tokens_mainnet.json' : '/tokens_testnet.json';
         const response = await fetch(tokenListFile);
         if (!response.ok) throw new Error(`Unable to load tokens from ${tokenListFile}`);
@@ -403,25 +399,6 @@ function App() {
         return;
       }
 
-      const payload = {
-        name: createForm.name.trim(),
-        protocol: createForm.protocol,
-        strategy: createForm.strategy,
-        depositUsd: Number(createForm.depositUsd) || 0,
-        tokens: validCreateTokens.map((token) => ({
-          symbol: token.symbol.trim(),
-          address: token.address.trim(),
-          amount: 0,
-        })),
-      };
-
-      console.log('=== Create Pool Form Output ===');
-      console.log('Payload:', payload);
-      console.log('Payload JSON:', JSON.stringify(payload, null, 2));
-      console.log('Valid tokens:', validCreateTokens);
-      console.log('Form state:', createForm);
-      console.log('================================');
-
       const factoryClient = new FactoryContract({
         contractId: FACTORY_CONTRACT_ID,
         networkPassphrase: FACTORY_NETWORK_PASSPHRASE,
@@ -447,46 +424,39 @@ function App() {
       const onChainResult = await tx.signAndSend();
       console.log('On-chain deployment result:', onChainResult);
 
-      // Start polling for the new pool after transaction is signed
       const initialPoolCount = pools.length;
       let pollCount = 0;
-      const maxPolls = 20; // Stop after 20 polls (30 seconds max)
+      const maxPolls = 20; // 30 seconds at one poll every 1.5 s
       
       pollInterval = setInterval(async () => {
         pollCount++;
         try {
           const onChainPools = await fetchUserPools(walletAddress, signTransaction);
           
-          // Check if we have a new pool
           if (onChainPools.length > initialPoolCount) {
-            // Stop polling immediately
             if (pollInterval) {
               clearInterval(pollInterval);
               pollInterval = null;
             }
             
-            // Find the new pool (should be the first one or the one we just created)
-            const newPoolData = onChainPools[0]; // New pools are typically first
+            // Assumes the factory lists the newest pool first.
+            const newPoolData = onChainPools[0];
             const convertedPool = transformPoolData(newPoolData);
 
-            // Update pools list with the new pool at the top (deduplicate by ID)
             setPools((prev) => {
-              // Remove any temporary pools and any existing pool with the same ID
               const filtered = prev.filter((p) => 
                 p.id !== `temp-${walletAddress}` && p.id !== convertedPool.id
               );
-              // Check if the pool is already in the filtered list to avoid duplicates
               const alreadyExists = filtered.some((p) => p.id === convertedPool.id);
               if (alreadyExists) {
-                return filtered; // Don't add if it already exists
+                return filtered;
               }
-              // Add the new pool at the top
               return [convertedPool, ...filtered];
             });
             
       setCreateForm({
         name: '',
-              protocol: convertedPool.protocol ?? 'soroswap', // Default to soroswap if null
+              protocol: convertedPool.protocol ?? 'soroswap',
               strategy: convertedPool.strategy,
         depositUsd: '',
         tokens: [
@@ -501,7 +471,6 @@ function App() {
               pollInterval = null;
             }
             console.warn('Polling timeout: New pool not detected after 30 seconds');
-            // Still show success message but user may need to refresh
             showToast('Pool creation transaction submitted. It may take a moment to appear.');
           }
         } catch (error) {
@@ -513,13 +482,11 @@ function App() {
             }
           }
         }
-      }, 1500); // Poll every 1.5 seconds
+      }, 1500);
 
-      // Show initial success message
       showToast('Pool creation transaction submitted. Waiting for confirmation...');
     } catch (error) {
       console.error(error);
-      // Clean up polling interval if it exists
       if (pollInterval) {
         clearInterval(pollInterval);
         pollInterval = null;
@@ -586,7 +553,6 @@ function App() {
         amount0: amount0Raw as any,
         amount1: amount1Raw as any,
       });
-      // Store pool state before deposit
       const poolBefore = selectedPool;
       const availableBefore0 = poolBefore.tokens[0].availableAmount || 0;
       const availableBefore1 = poolBefore.tokens[1].availableAmount || 0;
@@ -605,13 +571,12 @@ function App() {
         }
       }
 
-      // Refresh pool data and check for changes
       let pollCount = 0;
       const maxPolls = 10;
       let depositDetected = false;
 
       while (pollCount < maxPolls && !depositDetected) {
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait 1.5s between polls
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         pollCount++;
 
         try {
@@ -635,69 +600,31 @@ function App() {
               depositDetected: availableAfter0 > availableBefore0 || availableAfter1 > availableBefore1,
             });
             
-            // DEBUG: Test API call immediately when deposit is detected
-            if (availableAfter0 > availableBefore0 || availableAfter1 > availableBefore1) {
-              console.log('[lobster-deposit] 🔍 TEST: Deposit detected, testing API call NOW');
-              // Test the API call immediately
-              fetch(`http://202.61.253.81:3334/api/run/pool/${selectedPool.id}`)
-                .then(res => {
-                  console.log('[lobster-deposit] 🔍 TEST: API call succeeded', res.status);
-                  return res.json();
-                })
-                .then(data => console.log('[lobster-deposit] 🔍 TEST: API response', data))
-                .catch(err => console.error('[lobster-deposit] 🔍 TEST: API call failed', err));
-            }
-
-            // Check if available amounts increased (deposit succeeded)
             if (availableAfter0 > availableBefore0 || availableAfter1 > availableBefore1) {
               depositDetected = true;
-              console.log('[lobster-deposit] ✅ Deposit detected! Proceeding to trigger DecisionTaker API check...');
+              console.log('[lobster-deposit] Deposit detected');
               setPools(convertedPools);
       setAddForm((prev) => ({
         ...prev,
                 amounts: ['', ''],
               }));
-              showToast('✅ Deposit successful!', 'success');
+              showToast('Deposit successful!', 'success');
               
-              // If pool is in "Scanning Best pool" status (protocol is null), trigger DecisionTaker API
-              console.log('[lobster-deposit] Checking if DecisionTaker API should be triggered', {
-                poolId: selectedPool.id,
-                protocol: selectedPool.protocol,
-                protocolType: typeof selectedPool.protocol,
-                isNull: selectedPool.protocol === null,
-                isUndefined: selectedPool.protocol === undefined,
-                conditionMet: selectedPool.protocol === null || selectedPool.protocol === undefined,
-                selectedPoolFull: selectedPool, // Full pool object for debugging
-              });
-              
-              // TEMPORARY: Always trigger API for testing - remove this after debugging
-              const FORCE_API_CALL = true; // Set to false to restore normal behavior
-              
-              if (FORCE_API_CALL || selectedPool.protocol === null || selectedPool.protocol === undefined) {
-                if (FORCE_API_CALL) {
-                  console.warn('[lobster-deposit] ⚠️ FORCE_API_CALL is enabled - triggering API regardless of protocol');
-                }
+              // No protocol yet means the pool is still scanning, so DecisionTaker has to pick a DEX.
+              if (selectedPool.protocol === null || selectedPool.protocol === undefined) {
                 try {
-                  const apiUrl = `http://202.61.253.81:3334/api/run/pool/${selectedPool.id}`;
-                  console.log('[lobster-deposit] ✅ Triggering DecisionTaker API for scanning pool', {
+                  const apiUrl = `${DECISION_TAKER_URL}/api/run/pool/${selectedPool.id}`;
+                  console.log('[lobster-deposit] Triggering DecisionTaker API for scanning pool', {
                     poolAddress: selectedPool.id,
                     apiUrl,
                     timestamp: new Date().toISOString(),
                   });
                   
-                  // Make the API call - this should appear in Network tab
-                  const fetchStartTime = Date.now();
-                  console.log('[lobster-deposit] About to call fetch() - this should appear in Network tab');
                   const decisionTakerResponse = await fetch(apiUrl, {
                     method: 'GET',
                     headers: {
                       'Content-Type': 'application/json',
                     },
-                  });
-                  const fetchDuration = Date.now() - fetchStartTime;
-                  console.log('[lobster-deposit] Fetch completed', {
-                    duration: `${fetchDuration}ms`,
-                    status: decisionTakerResponse.status,
                   });
                   
                   console.log('[lobster-deposit] DecisionTaker API response status', {
@@ -710,15 +637,14 @@ function App() {
                     const result = await decisionTakerResponse.json();
                     console.log('[lobster-deposit] DecisionTaker API response', result);
                     
-                    // Wait 4.5 seconds, then start polling for DEX selection
                     setTimeout(async () => {
                       console.log('[lobster-deposit] Starting to poll for DEX selection...');
                       let pollCount = 0;
-                      const maxDexPolls = 20; // Poll for up to 30 seconds (20 * 1.5s)
+                      const maxDexPolls = 20; // 30 seconds at one poll every 1.5 s
                       let dexDetected = false;
                       
                       while (pollCount < maxDexPolls && !dexDetected) {
-                        await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait 1.5s between polls
+                        await new Promise((resolve) => setTimeout(resolve, 1500));
                         pollCount++;
                         
                         try {
@@ -727,14 +653,13 @@ function App() {
                           const updatedPool = convertedPools.find((p) => p.id === selectedPool.id);
                           
                           if (updatedPool) {
-                            // Check if protocol changed from null to a real protocol, or if actualPool is now set
                             const hadProtocol = updatedPool.protocol !== null && updatedPool.protocol !== undefined;
                             const hasActualPool = updatedPool.actualPool !== null && updatedPool.actualPool !== undefined;
                             
                             if (hadProtocol || hasActualPool) {
                               dexDetected = true;
                               setPools(convertedPools);
-                              showToast('✅ Deposited on DEX', 'success');
+                              showToast('Deposited on DEX', 'success');
                               console.log('[lobster-deposit] DEX detected!', {
                                 protocol: updatedPool.protocol,
                                 actualPool: updatedPool.actualPool,
@@ -750,7 +675,7 @@ function App() {
                       if (!dexDetected) {
                         console.log('[lobster-deposit] DEX selection polling timeout - pool may still be scanning');
                       }
-                    }, 4500); // Wait 4.5 seconds before starting to poll
+                    }, 4500);
                   } else {
                     const errorText = await decisionTakerResponse.text().catch(() => 'Could not read error response');
                     console.warn('[lobster-deposit] DecisionTaker API returned error', {
@@ -761,16 +686,16 @@ function App() {
                   }
                 } catch (apiError) {
                   // Don't fail the deposit if API call fails, just log it
-                  console.error('[lobster-deposit] ❌ Error calling DecisionTaker API', {
+                  console.error('[lobster-deposit] Error calling DecisionTaker API', {
                     error: apiError,
                     message: apiError instanceof Error ? apiError.message : String(apiError),
                     stack: apiError instanceof Error ? apiError.stack : undefined,
                     poolId: selectedPool.id,
-                    apiUrl: `http://202.61.253.81:3334/api/run/pool/${selectedPool.id}`,
+                    apiUrl: `${DECISION_TAKER_URL}/api/run/pool/${selectedPool.id}`,
                   });
                 }
               } else {
-                console.log('[lobster-deposit] ⚠️ DecisionTaker API NOT triggered - pool already has protocol', {
+                console.log('[lobster-deposit] DecisionTaker API not triggered, pool already has a protocol', {
                   poolId: selectedPool.id,
                   protocol: selectedPool.protocol,
                   reason: 'Pool already has a protocol assigned, no need to scan',
@@ -786,7 +711,6 @@ function App() {
       }
 
       if (!depositDetected) {
-        // Final refresh attempt
         try {
           const onChainPools = await fetchUserPools(walletAddress, signTransaction);
           const convertedPools: Pool[] = onChainPools.map(transformPoolData);
@@ -800,16 +724,16 @@ function App() {
         }
 
         if (txResult) {
-          showToast('✅ Deposit transaction submitted', 'success');
+          showToast('Deposit transaction submitted', 'success');
           
-          // If pool is in "Scanning Best pool" status (protocol is null), trigger DecisionTaker API
+          // No protocol yet means the pool is still scanning, so DecisionTaker has to pick a DEX.
           if (selectedPool.protocol === null || selectedPool.protocol === undefined) {
             try {
               console.log('[lobster-deposit] Triggering DecisionTaker API for scanning pool', {
                 poolAddress: selectedPool.id,
               });
               const decisionTakerResponse = await fetch(
-                `http://localhost:3334/api/run/pool/${selectedPool.id}`,
+                `${DECISION_TAKER_URL}/api/run/pool/${selectedPool.id}`,
                 {
                   method: 'GET',
                   headers: {
@@ -822,15 +746,14 @@ function App() {
                 const result = await decisionTakerResponse.json();
                 console.log('[lobster-deposit] DecisionTaker API response', result);
                 
-                // Wait 4.5 seconds, then start polling for DEX selection
                 setTimeout(async () => {
                   console.log('[lobster-deposit] Starting to poll for DEX selection...');
                   let pollCount = 0;
-                  const maxDexPolls = 20; // Poll for up to 30 seconds (20 * 1.5s)
+                  const maxDexPolls = 20; // 30 seconds at one poll every 1.5 s
                   let dexDetected = false;
                   
                   while (pollCount < maxDexPolls && !dexDetected) {
-                    await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait 1.5s between polls
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
                     pollCount++;
                     
                     try {
@@ -839,14 +762,13 @@ function App() {
                       const updatedPool = convertedPools.find((p) => p.id === selectedPool.id);
                       
                       if (updatedPool) {
-                        // Check if protocol changed from null to a real protocol, or if actualPool is now set
                         const hadProtocol = updatedPool.protocol !== null && updatedPool.protocol !== undefined;
                         const hasActualPool = updatedPool.actualPool !== null && updatedPool.actualPool !== undefined;
                         
                         if (hadProtocol || hasActualPool) {
                           dexDetected = true;
                           setPools(convertedPools);
-                          showToast('✅ Deposited on DEX', 'success');
+                          showToast('Deposited on DEX', 'success');
                           console.log('[lobster-deposit] DEX detected!', {
                             protocol: updatedPool.protocol,
                             actualPool: updatedPool.actualPool,
@@ -862,7 +784,7 @@ function App() {
                   if (!dexDetected) {
                     console.log('[lobster-deposit] DEX selection polling timeout - pool may still be scanning');
                   }
-                }, 4500); // Wait 4.5 seconds before starting to poll
+                }, 4500);
               } else {
                 console.warn('[lobster-deposit] DecisionTaker API returned error', decisionTakerResponse.status);
               }
@@ -909,8 +831,7 @@ function App() {
       const token0 = pool.tokens[0];
       const token1 = pool.tokens[1];
 
-      // Withdraw all available tokens from contract (not from DEX pools)
-      // Scale human-readable amounts back to raw i128
+      // Only what the vault holds itself; DEX positions come out through handleWithdrawFromDex.
       const amount0Raw = scaleAmountToRaw(token0.availableAmount || 0, token0.decimals || DEFAULT_TOKEN_DECIMALS);
       const amount1Raw = scaleAmountToRaw(token1.availableAmount || 0, token1.decimals || DEFAULT_TOKEN_DECIMALS);
 
@@ -951,7 +872,6 @@ function App() {
         amount1: amount1Raw.toString(),
       });
 
-      // Store pool state before withdraw
       const availableBefore0 = token0.availableAmount || 0;
       const availableBefore1 = token1.availableAmount || 0;
 
@@ -975,13 +895,12 @@ function App() {
         }
       }
 
-      // Refresh pool data and check for changes
       let pollCount = 0;
       const maxPolls = 10;
       let withdrawDetected = false;
 
       while (pollCount < maxPolls && !withdrawDetected) {
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait 1.5s between polls
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         pollCount++;
 
         try {
@@ -993,11 +912,10 @@ function App() {
             const availableAfter0 = updatedPool.tokens[0].availableAmount || 0;
             const availableAfter1 = updatedPool.tokens[1].availableAmount || 0;
 
-            // Check if available amounts decreased (withdraw succeeded)
             if (availableAfter0 < availableBefore0 || availableAfter1 < availableBefore1) {
               withdrawDetected = true;
               setPools(convertedPools);
-              showToast('✅ Withdrawal successful!', 'success');
+              showToast('Withdrawal successful!', 'success');
               break;
             }
           }
@@ -1007,7 +925,6 @@ function App() {
       }
 
       if (!withdrawDetected) {
-        // Final refresh attempt
         try {
           const onChainPools = await fetchUserPools(walletAddress, signTransaction);
           const convertedPools: Pool[] = onChainPools.map(transformPoolData);
@@ -1017,7 +934,7 @@ function App() {
         }
 
         if (txResult) {
-          showToast('✅ Withdrawal transaction submitted', 'success');
+          showToast('Withdrawal transaction submitted', 'success');
         } else {
           showToast('Withdrawal may have succeeded. Please refresh to verify.', 'success');
         }
@@ -1072,11 +989,9 @@ function App() {
         },
       });
 
-      // Store pool state before withdraw
       const lockedBefore0 = pool.tokens[0].amount || 0;
       const lockedBefore1 = pool.tokens[1].amount || 0;
 
-      // Use a large fixed deadline value
       const deadline = BigInt(99999999999);
 
       let txResult = null;
@@ -1091,7 +1006,6 @@ function App() {
 
       try {
         if (pool.protocol === 'soroswap') {
-          // For soroswap, we need the router address
           const routerTx = await lobsterClient.get_actual_router();
           const routerSim = await routerTx.simulate();
           const routerAddress = (routerSim.result as any)?.toString() || '';
@@ -1165,13 +1079,12 @@ function App() {
         }
       }
 
-      // Refresh pool data and check for changes
       let pollCount = 0;
       const maxPolls = 10;
       let withdrawDetected = false;
 
       while (pollCount < maxPolls && !withdrawDetected) {
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait 1.5s between polls
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         pollCount++;
 
         try {
@@ -1183,11 +1096,10 @@ function App() {
             const lockedAfter0 = updatedPool.tokens[0].amount || 0;
             const lockedAfter1 = updatedPool.tokens[1].amount || 0;
 
-            // Check if locked amounts decreased (withdraw from DEX succeeded)
             if (lockedAfter0 < lockedBefore0 || lockedAfter1 < lockedBefore1) {
               withdrawDetected = true;
               setPools(convertedPools);
-              showToast('✅ Withdrawal from DEX successful!', 'success');
+              showToast('Withdrawal from DEX successful!', 'success');
               break;
             }
           }
@@ -1197,7 +1109,6 @@ function App() {
       }
 
       if (!withdrawDetected) {
-        // Final refresh attempt
         try {
           const onChainPools = await fetchUserPools(walletAddress, signTransaction);
           const convertedPools: Pool[] = onChainPools.map(transformPoolData);
@@ -1207,7 +1118,7 @@ function App() {
         }
 
         if (txResult) {
-          showToast('✅ Withdrawal from DEX transaction submitted', 'success');
+          showToast('Withdrawal from DEX transaction submitted', 'success');
         } else {
           showToast('Withdrawal from DEX may have succeeded. Please refresh to verify.', 'success');
         }
@@ -1224,19 +1135,16 @@ function App() {
     setAddForm((prev) => ({ ...prev, poolId }));
     // Small delay to ensure state is updated
     setTimeout(() => {
-      // First blink during scroll
       setIsAddLiquidityGlowing(true);
-      setTimeout(() => setIsAddLiquidityGlowing(false), 1000); // First blink for 1 second
+      setTimeout(() => setIsAddLiquidityGlowing(false), 1000);
       
       addLiquiditySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       
-      // Wait for scroll to complete (~800ms for smooth scroll), then do two more blinks
+      // The smooth scroll takes about 800 ms; blink twice more once it ends.
       setTimeout(() => {
-        // Second blink
         setIsAddLiquidityGlowing(true);
         setTimeout(() => {
           setIsAddLiquidityGlowing(false);
-          // Third blink after a short pause
           setTimeout(() => {
             setIsAddLiquidityGlowing(true);
             setTimeout(() => setIsAddLiquidityGlowing(false), 1000);
@@ -1303,7 +1211,7 @@ function App() {
                 </div>
               ))}
               {hasDuplicateTokens && hasRequiredTokens && (
-                <small style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>⚠️ Cannot use the same token twice</small>
+                <small style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Cannot use the same token twice</small>
               )}
               <button type="submit" className="btn btn-primary" disabled={!canCreate || creating}>
                 {creating ? 'Deploying...' : 'Deploy pool'}
@@ -1378,7 +1286,7 @@ function App() {
                             Balance:{' '}
                             {token.address && walletTokenBalances[token.address] !== undefined
                               ? formatTokenAmountDisplay(walletTokenBalances[token.address])
-                              : '—'}
+                              : '-'}
                           </span>
                         )}
                       </label>

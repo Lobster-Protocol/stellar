@@ -14,7 +14,6 @@ interface TokenSelectorProps {
   tokens: Token[];
 }
 
-// Get network configuration from environment
 const runtimeEnv = (import.meta as { env?: Record<string, string> }).env ?? {};
 const NETWORK = (runtimeEnv.VITE_NETWORK ?? 'testnet') as 'mainnet' | 'testnet';
 const isMainnet = NETWORK === 'mainnet';
@@ -24,7 +23,6 @@ const RPC_URL = runtimeEnv.VITE_FACTORY_RPC ?? (
 const NETWORK_PASSPHRASE = runtimeEnv.VITE_FACTORY_NETWORK ?? (
   isMainnet ? 'Public Global Stellar Network ; September 2015' : 'Test SDF Network ; September 2015'
 );
-// Get secret key from environment (for TokenClient)
 const SECRET_KEY = runtimeEnv.VITE_SECRET ?? '';
 
 const formatAddress = (address: string): string => {
@@ -77,7 +75,7 @@ export function TokenSelector({ value, onChange, tokens }: TokenSelectorProps) {
 
     setIsLoadingSymbol(true);
     try {
-      // Use secret key from .env if available, otherwise use random keypair
+      // symbol() is only simulated and nothing gets signed, so any public key works here.
       const keypair = SECRET_KEY ? Keypair.fromSecret(SECRET_KEY) : Keypair.random();
 
       const client = new TokenClient({

@@ -1,73 +1,44 @@
-# React + TypeScript + Vite
+# FrontStellar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React app for Lobster vaults. Connect a wallet through Stellar Wallets Kit (every wallet module is enabled) and the app lists the vaults the factory holds for that address, with what sits in the DEX and what is still in the vault.
 
-Currently, two official plugins are available:
+From there you can create a vault for a token pair (`create_pool` on the factory) and deposit into it. Liquidity comes back out of the DEX with the vault's withdraw call for that DEX, or out of the vault to your wallet with `withdraw_contract`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Run it
 
-## React Compiler
+Node 20.19+ or 22.12+ (Vite 7).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env
+npm install
+npm run dev        # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Configuration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Variable | Default | Use |
+| --- | --- | --- |
+| `VITE_NETWORK` | `testnet` | `mainnet` or `testnet`. Picks the defaults below and the token list, `public/tokens_mainnet.json` or `public/tokens_testnet.json`. |
+| `VITE_FACTORY_RPC` | `https://soroban-testnet.stellar.org`, or `https://soroban-rpc.creit.tech` on mainnet | RPC for every contract call, not only the factory |
+| `VITE_FACTORY_CONTRACT` | the ID for that network in `bindings/factory.ts` | factory contract |
+| `VITE_FACTORY_NETWORK` | the passphrase of that network | network passphrase |
+| `VITE_DECISION_TAKER_URL` | `http://localhost:3334` | base URL of the DecisionTaker API |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Vite bakes these into the bundle, so rebuild after a change. The dev server restarts by itself when `.env` changes.
+
+`src/components/TokenSelector.tsx` also reads `VITE_SECRET`, only as the source account of a read-only `symbol()` simulation. Leave it unset: a random keypair is used instead, and anything in a `VITE_` variable ends up in the built JavaScript.
+
+After a deposit into a vault that has no DEX position yet, the app calls DecisionTaker's `GET /api/run/pool/` route with the vault address, on the server set by `VITE_DECISION_TAKER_URL`.
+
+## Scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Vite dev server |
+| `npm run build` | `tsc -b && vite build`, output in `dist/` |
+| `npm run preview` | serves `dist/` on http://localhost:4173 |
+| `npm run lint` | `eslint .` |
+
+There's no test suite. Lint and the type check in `npm run build` are the checks.
+
+`bindings/` holds the TypeScript clients for the vault, factory and token contracts, generated with `stellar contract bindings typescript`.

@@ -6,7 +6,6 @@ import { Keypair } from '@stellar/stellar-sdk';
 const runtimeEnv = (import.meta as { env?: Record<string, string> }).env ?? {};
 const NETWORK = (runtimeEnv.VITE_NETWORK ?? 'testnet') as 'mainnet' | 'testnet';
 
-// Determine network configuration based on VITE_NETWORK
 const isMainnet = NETWORK === 'mainnet';
 const FACTORY_CONTRACT_ID = runtimeEnv.VITE_FACTORY_CONTRACT ?? (
   isMainnet ? factoryNetworks.public.contractId : factoryNetworks.testnet.contractId
@@ -83,9 +82,6 @@ export interface PoolData {
   amountsTokens: [string, string] | null; // [amount0, amount1] - available in contract (not in DEX)
 }
 
-/**
- * Creates a factory client using wallet signing
- */
 function createFactoryClient(
   walletAddress: string,
   signTransaction: (txXdr: string, networkPassphrase: string) => Promise<string>
@@ -105,9 +101,6 @@ function createFactoryClient(
   });
 }
 
-/**
- * Creates a lobster client using wallet signing
- */
 function createLobsterClient(
   lobsterAddress: string,
   walletAddress: string,
@@ -128,10 +121,6 @@ function createLobsterClient(
   });
 }
 
-/**
- * Converts protocol number to string
- * Returns null for protocol 5 (no active position - scanning for best pool)
- */
 function protocolFromNumber(protocolNum: bigint | number | string | null | undefined): Protocol | null {
   if (protocolNum === null || protocolNum === undefined) return null;
   const num = typeof protocolNum === 'bigint' ? Number(protocolNum) : Number(protocolNum);
@@ -142,16 +131,12 @@ function protocolFromNumber(protocolNum: bigint | number | string | null | undef
   return null;
 }
 
-/**
- * Fetches all pools owned by a user from the factory
- */
 export async function fetchUserPools(
   userAddress: string,
   signTransaction: (txXdr: string, networkPassphrase: string) => Promise<string>
 ): Promise<PoolData[]> {
   const factoryClient = createFactoryClient(userAddress, signTransaction);
 
-  // Get pools by user
   console.log('[factory] get_pools_by_user', {
     userAddress,
     contractId: FACTORY_CONTRACT_ID,
@@ -167,7 +152,6 @@ export async function fetchUserPools(
     return [];
   }
 
-  // Helper function to retry a function with exponential backoff
   async function retryWithBackoff<T>(
     fn: () => Promise<T>,
     maxRetries: number = 3,
@@ -184,14 +168,12 @@ export async function fetchUserPools(
     throw new Error('Max retries exceeded');
   }
 
-  // For each pool, fetch detailed data with retry logic
   const poolDataPromises = pools.map(async (pool: any) => {
     const lobsterAddress = pool.lobster_address;
     const lobsterClient = createLobsterClient(lobsterAddress, userAddress, signTransaction);
     console.log('[lobster] Start pool scan', { lobsterAddress, owner: pool.owner });
 
     try {
-      // Fetch basic pool info with retry
       const [token0, token1, protocolNum, actualPool] = await retryWithBackoff(async () => {
         console.log('[lobster] get_token0/get_token1/get_active_protocol/get_actual_pool', { lobsterAddress });
         const [token0Tx, token1Tx, protocolTx, actualPoolTx] = await Promise.all([
@@ -230,12 +212,10 @@ export async function fetchUserPools(
         fetchTokenDecimals(token1),
       ]);
 
-      // Fetch LP amount and amounts based on protocol
       let lpAmount: string | null = null;
       let amounts: [string, string] | null = null; // Locked in DEX
       let amountsTokens: [string, string] | null = null; // Available in contract
 
-      // Always fetch get_amounts_tokens (tokens held directly by contract, not in pools) with retry
       try {
         amountsTokens = await retryWithBackoff(async () => {
           console.log('[lobster] get_amounts_tokens', { lobsterAddress });
@@ -252,7 +232,6 @@ export async function fetchUserPools(
         amountsTokens = ['0', '0'];
       }
 
-      // Fetch protocol-specific data with retry if protocol is active
       if (protocol && actualPool) {
         try {
           if (protocol === 'soroswap') {
@@ -340,8 +319,8 @@ export async function fetchUserPools(
         protocol,
         actualPool,
         lpAmount,
-        amounts, // Locked in DEX
-        amountsTokens, // Available in contract
+        amounts,
+        amountsTokens,
         token0Decimals,
         token1Decimals,
       } as PoolData;
