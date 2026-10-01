@@ -10,13 +10,9 @@ import path from 'path';
 
 const mode = process.env.NODE_ENV || 'production';
 
-// Load the appropriate .env file
 const dotenvPath = path.resolve(__dirname, `.env${mode !== 'production' ? `.${mode}` : ''}`);
 dotenv.config({ path: dotenvPath, quiet: true });
 
-// SubQuery project configuration for indexing Stellar/Soroban events used by Lobster
-// - Defines the network, endpoints, start block and the mapping handlers that will
-//   be triggered for specific Soroban event topics (Soroswap, Phoenix, Aquarius)
 const project: StellarProject = {
   specVersion: "1.0.0",
   name: "soroban-starter",
@@ -31,7 +27,6 @@ const project: StellarProject = {
       version: "*",
     },
   },
-  // General project metadata
   description:
     "This project can be use as a starting point for developing your new Stellar SubQuery project (mainnet)",
   repository: "https://github.com/subquery/stellar-subql-starter",
@@ -53,14 +48,12 @@ const project: StellarProject = {
      * These settings can be found in your docker-compose.yaml, they will slow indexing but prevent your project being rate limited
      * You can find RPC endpoints for Stellar here https://soroban.stellar.org/docs/reference/rpc-list
      */
-    // Horizon endpoint(s) used to read history. Prefer non-pruned archive nodes
-    // Supports comma-separated endpoints in .env file
+    // HORIZON_ENDPOINT can list several endpoints separated by commas
     endpoint: process.env.HORIZON_ENDPOINT 
       ? process.env.HORIZON_ENDPOINT.split(',').map(e => e.trim())
       : ["https://horizon-testnet.stellar.org"],
     /* This is a specific Soroban endpoint
       It is only required when you are using a soroban/EventHandler */
-    // Soroban RPC endpoint used for contract event decoding
     sorobanEndpoint: process.env.SOROBAN_ENDPOINT || "https://soroban-testnet.stellar.org",
   },
   dataSources: [
@@ -68,12 +61,10 @@ const project: StellarProject = {
       kind: StellarDatasourceKind.Runtime,
       // Logical start block for indexing (e.g. when contracts were deployed)
       startBlock: process.env.START_BLOCK ? parseInt(process.env.START_BLOCK, 10) : 1675410,
-      //stopBlock: process.env.STOP_BLOCK ? parseInt(process.env.STOP_BLOCK, 10) : undefined,
       mapping: {
         file: "./dist/index.js",
         handlers: [
-          //////////////////////////////////////////// SOROSWAP ///////////////////////////////////////
-          // Handlers for Soroswap events (commented examples retained for reference)
+          // Soroswap
           {
             handler: "handleSwapPairEvent",
             kind: StellarHandlerKind.Event,
@@ -109,8 +100,7 @@ const project: StellarProject = {
               topics: ["SoroswapRouter", "remove"],
             },
           },
-          // ////////////////////////////////////////////////  PHOENIX ///////////////////////////////////////////////
-          // Handlers that capture Phoenix AMM lifecycle: create pool, provide/remove liquidity, swaps
+          // Phoenix
           {
             handler: "handleNewPairPhoenixTokenAEvent",
             kind: StellarHandlerKind.Event,
@@ -253,9 +243,7 @@ const project: StellarProject = {
             },
           },
 
-          // ///////////////////////////////////////  AQUARIUS ////////////////////////////////////
-          // Handlers for Aquarius events (explicit contractId filter used)
-
+          // Aquarius
           {
             handler: "handleNewPairAquariusEvent",
             kind: StellarHandlerKind.Event,
@@ -265,7 +253,7 @@ const project: StellarProject = {
             },
           },
           {
-            handler: "handleDepositAquariusEvent", // deposit liquidity
+            handler: "handleDepositAquariusEvent",
             kind: StellarHandlerKind.Event,
             filter: {
               contractId: process.env.AQUARIUS_CONTRACT_ID || "CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD",
@@ -273,7 +261,7 @@ const project: StellarProject = {
             },
           },
           {
-            handler: "handleWithdrawAquariusEvent", // withdraw liquidity
+            handler: "handleWithdrawAquariusEvent",
             kind: StellarHandlerKind.Event,
             filter: {
               contractId: process.env.AQUARIUS_CONTRACT_ID || "CBCFTQSPDBAIZ6R6PJQKSQWKNKWH2QIV3I4J72SHWBIK3ADRRAM5A6GD",
@@ -281,14 +269,14 @@ const project: StellarProject = {
             },
           },
           {
-            handler: "handleTradeAquariusEvent", // trade liquidity
+            handler: "handleTradeAquariusEvent",
             kind: StellarHandlerKind.Event,
             filter: {
               topics: ["trade"],
             },
           },
           {
-            handler: "handleUpdateReservesAquariusEvent", // update reserves
+            handler: "handleUpdateReservesAquariusEvent",
             kind: StellarHandlerKind.Event,
             filter: {
               topics: ["update_reserves"],

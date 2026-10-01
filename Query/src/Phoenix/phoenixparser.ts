@@ -14,7 +14,6 @@ import { postToAPI } from "../mappings/mappingHandlers";
 import { phoenixPools as phoenixPoolsTestnet } from "../pool_repertory/phoenix_pools_testnet";
 import { phoenixPools as phoenixPoolsMainnet } from "../pool_repertory/phoenix_pools";
 
-// Function to find pool tokens by pool_address
 function getPhoenixPoolTokens(poolAddress: string): { token_0: string; token_1: string } | null {
   const NETWORK = process.env.NETWORK || 'testnet'; // mainnet
 
@@ -46,8 +45,6 @@ function httpsJson(hostname: string, path: string, method: 'GET' | 'POST' = 'GET
 const HORIZON = process.env.HORIZON_ENDPOINT || 'https://horizon-testnet.stellar.org';
 
 export async function fetchTxResultMetaB64(txHash: string): Promise<string | null> {
-
-  // 2) Fallback to Horizon
   try {
     const r = await fetch(`${HORIZON}/transactions/${txHash}`);
     if (r.ok) {
@@ -68,12 +65,7 @@ export function parseTransactionMeta(b64: string): xdr.TransactionMeta | null {
   }
 }
 
-// Phoenix event parser functions
-// Each function extracts a fragment from a Soroban event and persists it into a
-// per-transaction entity. A given transaction can emit multiple event fragments
-// (e.g. token addresses, amounts, sender). We attach them to the same entity id
-// based on the transaction hash.
-// Ensure a NewPairPhoenixEntity exists for the transaction
+// Each handler below sets one field on the entity shared by the events of its transaction
 async function getOrCreateNewPairEntity(event: SorobanEvent): Promise<NewPairPhoenixEntity> {
   const id = `${event.transaction?.hash}`;
   let entity = await NewPairPhoenixEntity.get(id);
@@ -102,11 +94,9 @@ async function getOrCreateNewPairEntity(event: SorobanEvent): Promise<NewPairPho
   return entity;
 }
 
-// Parse token A address from pool creation sequence
 export async function NewPairPhoenixTokenAEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -127,11 +117,9 @@ export async function NewPairPhoenixTokenAEvent(event: SorobanEvent): Promise<vo
   }
 }
 
-// Parse token B address from pool creation sequence
 export async function NewPairPhoenixTokenBEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -151,16 +139,11 @@ export async function NewPairPhoenixTokenBEvent(event: SorobanEvent): Promise<vo
     logger.error(`Error in NewPairPhoenixTokenBEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse pair (LP token/contract) address from pool creation sequence
 export async function NewPairPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const topics = event.topic
 
-    //logger.info(JSON.stringify(topics, null, 2))
-
-
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -188,40 +171,11 @@ export async function NewPairPhoenixEvent(event: SorobanEvent): Promise<void> {
   } catch (error) {
     logger.error(`Error in NewPairPhoenixEvent for event ${event.id}: ${error}`);
   }
-
-  // const id = event.transaction?.hash ?? "";
-
-  // const tx = event.transaction?.envelope_xdr ?? "";
-
-  // //logger.info(JSON.stringify(tx, null, 2));
-  // const envelope = xdr.TransactionEnvelope.fromXDR(tx, "base64");
-  // //logger.info(JSON.stringify(envelope.v1().tx(), null, 2));
-
-  // const newTX = envelope.v1().tx()
-  // for (const op of newTX.operations()) {
-  //     const body = op.body();
-  //     if (body.switch().name === "invokeHostFunction") {
-  //         const hostFn = body.invokeHostFunctionOp().hostFunction();
-  //         //logger.info(JSON.stringify(hostFn, null, 2))
-
-  //         //logger.info(hostFn.invokeContract().args)
-  //         const args = hostFn.invokeContract().args();
-  //         args.map(a => scValToNative(a));
-  //         //logger.info(JSON.stringify(args[1], null, 2))
-
-  //         logger.info( JSON.stringify(body.invokeHostFunctionOp().hostFunction().invokeContract().args()).substring(0, 10000));
-  //     }
-  // }
-  // //return [];
-  // //const data = envelope.value.
-
 }
 
-// Parse staking contract reference emitted during setup (if present)
 export async function StackingTokenContractPhoenixTokenBEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -243,8 +197,6 @@ export async function StackingTokenContractPhoenixTokenBEvent(event: SorobanEven
 }
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// Ensure an AddLiquidityPhoenixEntity exists for the transaction
 async function getOrCreateDepositEntity(event: SorobanEvent): Promise<AddLiquidityPhoenixEntity> {
   const id = `${event.transaction?.hash ?? ""}${event.contractId ?? ""}`;
   let entity = await AddLiquidityPhoenixEntity.get(id);
@@ -271,11 +223,9 @@ async function getOrCreateDepositEntity(event: SorobanEvent): Promise<AddLiquidi
 
   return entity;
 }
-// Parse liquidity provider address
 export async function DepositSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))_value._arm
 
     let sender = "";
 
@@ -302,11 +252,9 @@ export async function DepositSenderPhoenixEvent(event: SorobanEvent): Promise<vo
   }
 }
 
-// Parse token A address used in liquidity deposit
 export async function DepositTokenAPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -327,11 +275,9 @@ export async function DepositTokenAPhoenixEvent(event: SorobanEvent): Promise<vo
   }
 }
 
-// Parse token B address used in liquidity deposit
 export async function DepositTokenBPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -352,11 +298,9 @@ export async function DepositTokenBPhoenixEvent(event: SorobanEvent): Promise<vo
   }
 }
 
-// Parse token A amount deposited
 export async function DepositTokenAAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const tokenAAmount = value?._value?._attributes?.lo?._value;
     if (tokenAAmount == null) {
@@ -374,11 +318,9 @@ export async function DepositTokenAAmountPhoenixEvent(event: SorobanEvent): Prom
     logger.error(`Error in DepositTokenAAmountPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse token B amount deposited
 export async function DepositTokenBAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const tokenBAmount = value?._value?._attributes?.lo?._value;
     if (tokenBAmount == null) {
@@ -407,9 +349,6 @@ export async function DepositTokenBAmountPhoenixEvent(event: SorobanEvent): Prom
 }
 
 
-////////////////////////////////////////////////////////////////////////////////////////
-
-// Ensure a SwapPhoenixEntity exists for the transaction
 async function getOrCreateSwapEntity(event: SorobanEvent): Promise<SwapPhoenixEntity> {
   const id = `${event.transaction?.hash ?? ""}${event.contractId ?? ""}`;
   let entity = await SwapPhoenixEntity.get(id);
@@ -446,11 +385,9 @@ async function getOrCreateSwapEntity(event: SorobanEvent): Promise<SwapPhoenixEn
   return entity;
 }
 
-// Parse swap initiator address
 export async function SwapSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
 
     let sender = "";
@@ -475,11 +412,9 @@ export async function SwapSenderPhoenixEvent(event: SorobanEvent): Promise<void>
     logger.error(`Error in SwapSenderPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse token being sold and compute order_token if both sides are known
 export async function SwapSellTokenPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -502,11 +437,9 @@ export async function SwapSellTokenPhoenixEvent(event: SorobanEvent): Promise<vo
     logger.error(`Error in SwapSellTokenPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse offered amount (before slippage/fees)
 export async function SwapOfferAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._attributes?.lo?._value;
 
@@ -515,11 +448,9 @@ export async function SwapOfferAmountPhoenixEvent(event: SorobanEvent): Promise<
     logger.error(`Error in SwapOfferAmountPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse actual received amount and derive order_amount if possible
 export async function SwapActualReceivedPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._attributes?.lo?._value;
     if (mapEntries == null) {
@@ -541,11 +472,9 @@ export async function SwapActualReceivedPhoenixEvent(event: SorobanEvent): Promi
     logger.error(`Error in SwapActualReceivedPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse return amount and derive order_amount if possible
 export async function SwapReturnAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._attributes?.lo?._value;
     if (mapEntries == null) {
@@ -567,7 +496,6 @@ export async function SwapReturnAmountPhoenixEvent(event: SorobanEvent): Promise
     logger.error(`Error in SwapReturnAmountPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse spread amount
 export async function SwapSpreadAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
@@ -587,11 +515,9 @@ export async function SwapSpreadAmountPhoenixEvent(event: SorobanEvent): Promise
   }
 }
 
-// Parse token being bought and compute order_token if both sides are known
 export async function SwapBuyTokenPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._value;
     if (!mapEntries) {
@@ -616,11 +542,10 @@ export async function SwapBuyTokenPhoenixEvent(event: SorobanEvent): Promise<voi
   }
 }
 
-// Parse referral fee amount and send all data to NATS
+// referral_fee_amount comes last, so this handler completes and publishes the swap
 export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const mapEntries = value?._value?._attributes?.lo?._value;
     if (mapEntries == null) {
@@ -635,14 +560,13 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
 
 
 
-  // Test the HTTPS request with proper logging
+  // Fee and reserves are not in the swap events, so read them from the transaction meta
   const txHash = event.transaction?.hash ?? '';
   logger.info(`Starting HTTPS request for tx: ${txHash}`);
   let r: any;
 
   try {
     r = await httpsJson('soroban-testnet.stellar.org', '/', 'POST', { 'Content-Type': 'application/json' }, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTransaction', params: { hash: event.transaction?.hash } }));
-    //logger.info(`metaXDR: ${r?.result?.slice(0,4000) ?? 'none'}`);
   } catch (error) {
     logger.error(`HTTPS request failed: ${error}`);
   }
@@ -653,7 +577,6 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
       await entity.save();
       return;
     }
-    //logger.info(`meta: ${JSON.stringify(metaXDR._value._attributes.operations, null, 2).slice(0,10000)}`);
     const operations = metaXDR?._value?._attributes?.operations;
     if (!operations || !Array.isArray(operations) || operations.length === 0) {
       logger.warn(`SwapReferralFeePhoenixEvent: Missing operations for event ${event.id}`);
@@ -661,18 +584,15 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
       return;
     }
     const changes = operations[0]?._attributes?.changes;
-    //logger.info(`operation: ${JSON.stringify(changes, null, 2).slice(0,10000)}`);
 
     const persistList = [];
 
-    //logger.info(`changes len=${changes?.length ?? 0}`);
     if (!changes || !Array.isArray(changes)) {
       logger.warn(`SwapReferralFeePhoenixEvent: Missing or invalid changes array for event ${event.id}`);
       await entity.save();
       return;
     }
     for (const change of changes) {
-    //logger.info(`change switch: ${change?._switch?.name ?? 'unknown'}`);
 
     if (change?._switch?.name === "ledgerEntryUpdated") {
 
@@ -684,10 +604,6 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
 
 
         if (persistToken == "1" || persistToken == "2") {
-          // logger.info(`||||||||||||||||||||||||||||||||`);
-          // logger.info(StrKey.encodeContract(persistAddress));
-          // logger.info(`persistToken: ${persistToken ?? 'nil'}`);
-          // logger.info(`persistAmount: ${persistAmount ?? 'nil'}`);
 
           if (StrKey.encodeContract(persistAddress) == String(event.contractId)) {
             persistList.push({
@@ -704,16 +620,13 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
     }
   }
     persistList.sort((a, b) => a.token.localeCompare(b.token));
-    //logger.info(JSON.stringify(persistList, null, 2));
 
-    //logger.info("//////////////////////////////////////////####################################");
     const eventsForFees = operations[0]?._attributes?.events;
     if (!eventsForFees || !Array.isArray(eventsForFees)) {
       logger.warn(`SwapReferralFeePhoenixEvent: Missing eventsForFees for event ${event.id}`);
       await entity.save();
       return;
     }
-    //logger.info(event.id.split('-').pop());
     const eventIdParts = String(event.id ?? "").split('-');
     const myInt = eventIdParts.length > 0 ? Number(eventIdParts[eventIdParts.length - 1]) : 0;
     if (isNaN(myInt) || myInt < 8 || myInt - 8 >= eventsForFees.length) {
@@ -721,7 +634,6 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
       await entity.save();
       return;
     }
-    //logger.info(JSON.stringify(eventsForFees[myInt - 8], null, 2).slice(0,15000));
 
     const feeAmount = eventsForFees[myInt - 8]?._attributes?.body?._value?._attributes?.data?._value?._attributes?.lo?._value;
     if (feeAmount == null) {
@@ -734,19 +646,13 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
 
     entity.fee = feeAmount.toString();
 
-    //logger.info(`Contract ID: ${String(event.contractId ?? "")}`);
-    //const myPair = await store.getByField("NewPairPhoenixEntity", "pair" as any, String(event.contractId ?? ""), { limit: 1 });
-    // const myPair = await NewPairPhoenixEntity.getByFields([
-    //   ["pair", "=", String(event.contractId ?? "")],
-    // ], { limit: 1 });
     const poolAddress = String(event.contractId ?? "");
 
-    // Try to get pair from database first
     const myPair = await NewPairPhoenixEntity.getByFields([
       ["pair", "=", poolAddress],
     ], { limit: 1 });
     
-    // If not found in database, try repository as fallback
+    // Pools created before START_BLOCK have no NewPair entity; fall back to pool_repertory
     let poolTokens: { token_0: string; token_1: string } | null = null;
     
     if (myPair.length > 0 && myPair[0]) {
@@ -764,15 +670,6 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
         return;
       }
     }
-
-
-    // logger.info(`My pair: ${JSON.stringify(myPair, null, 2)}`);
-
-    // if (myPair.length === 0 || !myPair[0]) {
-    //   logger.warn(`SwapReferralFeePhoenixEvent: No pair found for contract ${event.contractId} in event ${event.id}`);
-    //   await entity.save();
-    //   return;
-    // }
 
     entity.token_0 = poolTokens.token_0;
     entity.token_1 = poolTokens.token_1;
@@ -823,12 +720,6 @@ export async function SwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<
 }
 
 
-
-
-
-/////////////////////////////////////////////////////////////////////
-
-// Ensure a RemoveLiquidityPhoenixEntity exists for the transaction
 async function getOrCreateWithdrawEntity(event: SorobanEvent): Promise<RemoveLiquidityPhoenixEntity> {
   const id = `${event.transaction?.hash ?? ""}${event.contractId ?? ""}`;
   let entity = await RemoveLiquidityPhoenixEntity.get(id);
@@ -856,11 +747,9 @@ async function getOrCreateWithdrawEntity(event: SorobanEvent): Promise<RemoveLiq
   return entity;
 }
 
-// Parse withdraw initiator address
 export async function WithdrawSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
 
     let sender = "";
@@ -885,11 +774,9 @@ export async function WithdrawSenderPhoenixEvent(event: SorobanEvent): Promise<v
     logger.error(`Error in WithdrawSenderPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse LP shares burnt during withdrawal
 export async function WithdrawSharesAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const shares = value?._value?._attributes?.lo?._value;
     if (shares == null) {
@@ -907,11 +794,9 @@ export async function WithdrawSharesAmountPhoenixEvent(event: SorobanEvent): Pro
     logger.error(`Error in WithdrawSharesAmountPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse returned amount of token A
 export async function WithdrawReturnAmountAPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const amountA = value?._value?._attributes?.lo?._value;
     if (amountA == null) {
@@ -929,11 +814,9 @@ export async function WithdrawReturnAmountAPhoenixEvent(event: SorobanEvent): Pr
     logger.error(`Error in WithdrawReturnAmountAPhoenixEvent for event ${event.id}: ${error}`);
   }
 }
-// Parse returned amount of token B
 export async function WithdrawReturnAmountBPhoenixEvent(event: SorobanEvent): Promise<void> {
   try {
     const value = event.value as any;
-    //logger.info(JSON.stringify(value, null, 2))
 
     const amountB = value?._value?._attributes?.lo?._value;
     if (amountB == null) {

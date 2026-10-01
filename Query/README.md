@@ -1,164 +1,97 @@
-## Lobster Query Indexer
+# Query
 
-A production-ready SubQuery project that ingests Soroban events on Stellar to keep a unified view of AMM activity for Lobster. The indexer watches Phoenix, Soroswap, and Aquarius liquidity pools, stores normalized entities in Postgres, exposes them through GraphQL, and fan-outs near-real-time updates over NATS.
+SubQuery indexer for the Soroswap, Phoenix and Aquarius pools on Stellar. It reads Soroban contract events, rebuilds swaps, liquidity changes and new pools from them, stores the records in Postgres and serves them over GraphQL. Each new pool, deposit, withdrawal and swap, once complete, is also posted to a small HTTP bridge that publishes it on NATS (see [NATS_README.md](NATS_README.md)).
 
 ```
-           ┌──────────────┐     Soroban RPC / Horizon
-on-chain → │ SubQuery Node├───────────────┬────────────┐
-           └──────┬───────┘               │            │
-                  │                       │            │
-                  ▼                 parses handlers    │
-           PostgreSQL ◄──── dist/mappings ◄─ project.ts│
-                  │                                     
-                  │ GraphQL API                         │
-                  ▼                                     
-         subql-query service ── HTTP & WS ── clients    
-                  │                                     
-                  ├─ optional Express bridge → NATS JetStream → subscribers
-                  └─ SDK consumers / dashboards
+Horizon + Soroban RPC
+          |
+    subquery-node (handlers in src/) --POST /publish--> express-nats-service --> nats-server
+          |
+       postgres
+          |
+    graphql-engine (GraphQL over HTTP and WebSocket, port 3000)
 ```
-
-If you are new to SubQuery, the [SubQuery Academy](https://academy.subquery.network) offers a concise primer on the tooling referenced below.
-
----
-
-## Highlights
-
-- **Multi-DEX coverage**: Phoenix XYK pools, Soroswap Factory/Router, Aquarius pools (contract-level filters).
-- **Per-transaction reconstruction**: handlers stitch Soroban event fragments by transaction hash to build human-readable swap/liquidity entities.
-- **Streaming bus**: `postToAPI` pushes entities into the `bridge-API` service that republishes them to `lobster.events.*` subjects on NATS with JetStream persistence.
-- **Pool registries**: `src/pool_repertory/*` provides deterministic token metadata (per network) for known pools.
-- **One-command local stack**: `docker compose up` launches Postgres, the SubQuery node, query service, NATS, and the REST bridge.
-
----
-
-## Repository Map
-
-| Path | Purpose |
-| --- | --- |
-| `project.ts` | Source-of-truth SubQuery config (network, handlers, env-aware settings). |
-| `schema.graphql` | Entity definitions for swaps/liquidity/pairs across DEXes. |
-| `src/mappings/mappingHandlers.ts` | Soroban event handlers delegating to protocol parsers. |
-| `src/{Phoenix,Soroswap,Aquarius}` | Parser implementations that shape events into entities and trigger downstream hooks. |
-| `src/services/natsService.ts` | JetStream helper to publish/consume Lobster events. |
-| `bridge-API/` | Lightweight Express service that accepts POSTs from the indexer and publishes onto NATS. |
-| `docker-compose.yml` | Local orchestration for Postgres, SubQuery node, GraphQL endpoint, NATS, and bridge API. |
-
----
 
 ## Requirements
 
-- Node 18+
-- Docker Desktop or compatible engine
-- `@subql/cli` installed globally (`npm install -g @subql/cli`)
-- Access to a Horizon archive endpoint (public or private)
-- For production, credentials for your own Postgres and NATS deployments
+- Node 20 or later. `@subql/cli` is a dev dependency on the `latest` tag, and its current release requires Node 20. `npm install` brings it in, so there is nothing to install globally.
+- Docker with Compose v2 (`docker compose`).
+- A Horizon endpoint that keeps full history (a non-pruned archive node) and a Soroban RPC endpoint.
 
----
+## Layout
 
-## Environment Configuration
+| Path | Contents |
+| --- | --- |
+| `project.ts` | SubQuery manifest: network, endpoints, start block, event handlers. `npm run build` generates `project.yaml` from it. |
+| `schema.graphql` | Entities and indexes |
+| `src/mappings/mappingHandlers.ts` | Handler entry points and `postToAPI` |
+| `src/Soroswap`, `src/Phoenix`, `src/Aquarius` | Parsers that turn events into entities |
+| `src/pool_repertory/` | Known pools and their tokens, per protocol, for testnet and mainnet |
+| `src/services/natsService.ts` | JetStream helper that the handlers do not call (see NATS_README.md) |
+| `src/test/test-nats.js` | Prints every NATS message |
+| `bridge-API/` | Express service that publishes posted records on NATS |
+| `docker/` | Postgres 16 image with the `btree_gist` extension |
+| `docker-compose.yml` | Local stack |
 
-The project reads `.env`, `.env.develop`, etc. via `NODE_ENV`. Key variables:
+## Configuration
 
-| Variable | Description | Default |
+`project.ts` loads `.env`, or `.env.<NODE_ENV>` when `NODE_ENV` is set to anything other than `production` (`npm run build:develop` reads `.env.develop`). The values end up in the generated manifest, so rebuild after changing them. `.env` comes with testnet values, and `.env example` is an identical copy to start other files from.
+
+| Variable | Default | Meaning |
 | --- | --- | --- |
-| `CHAIN_ID` | Stellar network passphrase. | `Test SDF Network ; September 2015` |
-| `HORIZON_ENDPOINT` | Comma-separated Horizon URLs (archive required). | `https://horizon-testnet.stellar.org` |
-| `SOROBAN_ENDPOINT` | Soroban RPC endpoint used by event handlers. | `https://soroban-testnet.stellar.org` |
-| `START_BLOCK` | First ledger to index (integer). | `1675410` |
-| `AQUARIUS_CONTRACT_ID` | Filter for Aquarius pools. | `CBCFTQSP...` |
-| `CHAIN_ID_NUM` | Numeric chain identifier pushed via NATS payloads. | unset |
-| `NETWORK` | `testnet` or `mainnet`, toggles pool repertory. | `testnet` |
+| `CHAIN_ID` | `Test SDF Network ; September 2015` | Network passphrase. Mainnet is `Public Global Stellar Network ; September 2015`. |
+| `HORIZON_ENDPOINT` | `https://horizon-testnet.stellar.org` | Horizon URLs, comma-separated |
+| `SOROBAN_ENDPOINT` | `https://soroban-testnet.stellar.org` | Soroban RPC URL |
+| `START_BLOCK` | `1675410` (`.env` sets `1675415`) | First ledger to index |
+| `AQUARIUS_CONTRACT_ID` | the testnet ID | Contract whose `add_pool`, `deposit_liquidity` and `withdraw` events are indexed. `.env example` has the testnet and mainnet IDs. |
+| `NETWORK` | `testnet` | Picks the testnet or mainnet lists in `src/pool_repertory/` |
+| `CHAIN_ID_NUM` | unset | Copied into the `chain_id` field of each NATS message |
 
-### Example `.env.develop`
+`NETWORK` and `CHAIN_ID_NUM` are read by the handlers while indexing, not by `project.ts`. SubQuery hands the project's `.env` (that file only, whatever `NODE_ENV` says) to handler code starting with `@subql/node-core` 18.4.0, released in September 2025. The `subql-node-stellar:v6.0.3-0` image pinned in `docker-compose.yml` was published in August 2025 and predates it, so in this stack the handlers use their defaults: testnet pool lists and no `chain_id`.
 
-```
-NODE_ENV=develop
-CHAIN_ID=Test SDF Network ; September 2015
-CHAIN_ID_NUM=400
-HORIZON_ENDPOINT=https://horizon-testnet.stellar.org
-SOROBAN_ENDPOINT=https://soroban-testnet.stellar.org
-START_BLOCK=1675410
-NETWORK=testnet
-AQUARIUS_CONTRACT_ID=CBCF...
+## Running locally
+
+```bash
+npm install
+npm run build
+docker compose up
 ```
 
----
+`npm run dev` does the build, pulls the images and starts the stack in one go. `npm run start:docker` pulls and starts without building.
 
-## Installation & First Run
+| Service | Host port | Role |
+| --- | --- | --- |
+| `postgres` | 5432 | Indexed data, kept in `.data/postgres` |
+| `subquery-node` | 3001 | Indexer, with `/ready` and `/metrics` |
+| `graphql-engine` | 3000 | GraphQL API, playground at http://localhost:3000 |
+| `nats-server` | 4222, 8222 | NATS with JetStream enabled; 8222 is the monitoring port |
+| `express-nats-service` | 8080 | Bridge from the indexer to NATS |
 
-1. **Install dependencies**
-   ```
-   npm install -g @subql/cli
-   cd Query
-   npm install
-   ```
+Database credentials are in `docker-compose.yml` and `docker/pg-Dockerfile`. To reindex from `START_BLOCK`, stop the stack, delete `.data/postgres` and start it again.
 
-2. **Generate types and build**
-   ```
-   npm run build        # (runs codegen + build)
-   ```
+The node runs with `--unsafe` because the handlers use Node's `http` and `https` modules (to post to the bridge, and in the Phoenix parser to fetch transaction meta from a Soroban RPC), which the SubQuery sandbox does not allow otherwise. `--workers=1` and `--batch-size=2` keep the request rate low for public endpoints; raise them in `docker-compose.yml` if yours allow it. Both the node and the query service run with `--subscription`, so GraphQL subscriptions work over WebSocket on port 3000.
 
-3. **Launch the stack**
-   ```
-   docker compose up
-   ```
+## Entities
 
-   This starts:
-   - `postgres` (ledger data store)
-   - `subquery-node` (indexer) on port 3001
-   - `graphql-engine` (GraphQL playground/API) on port 3000
-   - `nats-server` with JetStream on ports 4222/8222
-   - `express-nats-service` on port 8080 (HTTP bridge)
+Handlers are declared in `project.ts`; fields and indexes are in `schema.graphql`.
 
-4. **Explore the API**: Open http://localhost:3000 to view the schema and run sample queries.
+Soroswap: `new_pair` from the factory, `add` and `remove` from the router, `swap` and `sync` from the pair contracts. They map to `NewPairEventEntity`, `AddLiquidityEventEntity`, `RemoveLiquiditEntity`, `SwapEventEntity` and `SyncEventEntity`. A swap takes its reserves from the `sync` event emitted just before it in the same transaction.
 
-To reset containers/images quickly:
+Phoenix emits one event per field (sender, token, amount and so on), so the handlers collect the pieces under the transaction hash, plus the contract ID for liquidity and swaps, until the record is complete. `NewPairPhoenixEntity` gets the two tokens, the pool address (`pair`) and the transaction's source account as `creator`; its `fees`, `initial_0`, `initial_1` and `staking_contract` fields stay empty. `SwapPhoenixEntity` holds the sell and buy tokens and amounts, the spread and the referral fee; the `referral_fee_amount` handler then reads the fee and the reserves from the transaction meta, adds the pool's tokens and publishes the swap. Liquidity goes to `AddLiquidityPhoenixEntity` and `RemoveLiquidityPhoenixEntity`.
 
-```
-clear && docker system prune -a --volumes && \
-docker load -i subql-query_latest.tar && \
-docker load -i subql-node-stellar_v6.0.3-0.tar && \
-docker load -i nats_2.10-alpine.tar && \
-npm run dev
-```
+Aquarius: `add_pool`, `deposit_liquidity` and `withdraw` are filtered on `AQUARIUS_CONTRACT_ID` and stored as `NewPairAquariusEntity`, `AddLiquidityAquariusEntity` and `RemoveLiquidityAquariusEntity`. `trade` and `update_reserves` have no contract filter. A trade is kept only when its contract is a known pool (an indexed `add_pool` or an entry in `src/pool_repertory/`) and becomes a `SwapAquariusEntity`. The `update_reserves` handler is written to fill in that trade's reserves, publish it and store a `ReserveAquariusEntity`, but its lookup misses the trade (see [Known issues](#known-issues)).
 
----
+When a pool's creation was not indexed (it happened before `START_BLOCK`, for example), the handlers take the pool's tokens from `src/pool_repertory/`. Soroswap swaps and syncs and Aquarius trades on a pool found in neither place are dropped; a Phoenix swap on such a pool is saved without its tokens and reserves and is not published.
 
-## Data Sources & Entities
+`Account`, `Transfer` and `Payment` come from the SubQuery starter schema. No handler writes them.
 
-Handlers are declared in `project.ts` and compiled into `project.yaml`. They listen to Soroban topics and call parser functions which:
+## Querying
 
-1. Normalize addresses/amounts.
-2. Collect fragments per transaction (`txHash` + `contractId`).
-3. Persist typed entities under `src/types/models`.
-4. Optionally POST the final entity to the Express bridge (`postToAPI`) for streaming.
-
-### Phoenix
-- Pool initialization fragments (`handleNewPairPhoenix*`) store LP details plus staking contract references.
-- Liquidity provide/withdraw events track senders, tokens, share amounts.
-- Swap events capture sell/buy token, reserves before/after, spread and referral fees.
-- Pool metadata is enriched via `pool_repertory/phoenix_pools*.ts`.
-
-### Soroswap
-- Factory and router events map to `NewPairEventEntity`, `AddLiquidityEventEntity`, `RemoveLiquiditEntity`, `SwapEventEntity`, `SyncEventEntity`.
-- Event parsing ensures reserves and order details are kept for analytics.
-
-### Aquarius
-- Contract-specific filters ensure only Aquarius pools are ingested.
-- Entities cover pool creation, deposits, withdrawals, swaps, and reserve syncs.
-
-Refer to `schema.graphql` for field-level documentation and indexes.
-
----
-
-## Querying the GraphQL API
-
-Use the playground at `http://localhost:3000` or any GraphQL client. Example:
+The playground is at http://localhost:3000. Field names are camel-cased in GraphQL (`amount_0` in the schema is `amount0`), and amounts, ledgers and timestamps are stored as strings. Timestamps are 10-digit Unix seconds, so sorting on them as text gives time order.
 
 ```graphql
 query LatestAquariusSwaps {
-  swapAquariusEntities(first: 5, orderBy: BLOCK_DESC) {
+  swapAquariusEntities(first: 5, orderBy: TIMESTAMP_DESC) {
     nodes {
       id
       contract
@@ -172,98 +105,51 @@ query LatestAquariusSwaps {
 }
 ```
 
-Example output:
+## NATS
 
-```
-{
-  "data": {
-    "swapAquariusEntities": {
-      "nodes": [
-        {
-          "id": "e4de12c0e75d0665b1d8692216e75e8538809c7a4685246c6786752aeae66897",
-          "contract": "GDAX2ZVJTBHJZ46E2IKSBNAC3LT2MJI2PVMKPZ3ZCR63HIEWJZMCRM7P",
-          "amount0": "60",
-          "amount1": "85",
-          "sender": "GBDLTYLVIFS44CA2OX6RFGYESHY5U25BM2YSU6XAQLLDKJ65CBIVZHRL",
-          "block": "313786",
-          "timestamp": "1756763034"
-        },
-        { "... more nodes ..." }
-      ]
-    }
-  }
-}
-```
+Once a new pool, deposit, withdrawal or swap is complete and saved, the parser posts it to `express-nats-service`, which publishes it on `lobster.<dex>.<event>`, for example `lobster.phoenix.swap`. These are plain NATS messages and nothing stores them: a subscriber only gets what is published while it is connected. [NATS_README.md](NATS_README.md) lists the subjects and the payload, with a subscriber example.
 
-The GraphQL documentation sidebar enumerates all entities, relationships, and derived fields (e.g., `Account.sentTransfers`).
+## Scripts
 
----
-
-## Event Streaming via NATS
-
-For consumers that need push-based updates, the indexer can forward entities to NATS:
-
-1. `src/mappings/mappingHandlers.ts` calls `postToAPI(subject, entity)` after key events.
-2. `bridge-API/api.js` receives the POST on `/publish` and publishes the payload to `NATS_SUBJECT` (defaults to `events` but handlers pass e.g. `lobster.phoenix.swap`).
-3. `nats-server` (JetStream enabled) persists events under the `LOBSTER_EVENTS` stream with subjects `lobster.events.*`.
-4. Downstream services connect via `nats://localhost:4222` (or your cluster) and consume durable subscriptions using `NatsService`.
-
-Monitoring: visit http://localhost:8222/healthz or the JetStream dashboard to inspect stream lag, consumers, and message throughput. See `NATS_README.md` for extended usage patterns.
-
----
-
-## Useful Scripts
-
-| Command | Description |
+| Command | What it does |
 | --- | --- |
-| `npm run codegen` | Generate TypeScript models from `schema.graphql`. Run after schema edits. |
-| `npm run build` | `subql codegen && subql build`. Produces `dist/`. |
-| `npm run dev` | Build + pull docker images + `docker compose up`. Handy for clean starts. |
-| `npm run test` | Build then execute `subql-node-stellar test`. |
-| `npm run build:develop` | Build with `NODE_ENV=develop` to load `.env.develop`. |
+| `npm run codegen` | Generates the entity classes in `src/types` from `schema.graphql`. |
+| `npm run build` | `subql codegen`, then `subql build`. Output in `dist/`. |
+| `npm run build:develop` | Same build with `NODE_ENV=develop`. |
+| `npm run dev` | Build, `docker compose pull`, `docker compose up --remove-orphans`. |
+| `npm run start:docker` | Pull and start, no build. |
+| `npm test` | Build, then `subql-node-stellar test`. `src/` has no SubQuery test files for it to run. |
 
----
+## Extending
 
-## Extending the Indexer
-
-- **Add a new pool registry**: extend `src/pool_repertory/*.ts` with the pool and token metadata.
-- **Track a new contract**: add a handler in `project.ts` with the appropriate topics or contract ID, then implement the parser and entity definitions.
-- **Emit more streaming events**: wrap the entity in `postToAPI` (or use `NatsService.publishEvent`) inside the parser once all fragments are assembled.
-- **Tune performance**: adjust `--workers` and `--batch-size` in `docker-compose.yml` for your Horizon rate limits. Archive nodes can handle higher throughput.
-
----
+- New pool: add it to the matching file in `src/pool_repertory/`, for each network that has it.
+- New contract or event: declare a handler in `project.ts` (topics, plus `contractId` when the topics are not specific enough), export a function with that name from `src/mappings/mappingHandlers.ts` that calls your parser, add the entity to `schema.graphql`, then run `npm run build`.
+- New NATS message: call `postToAPI("lobster.<dex>.<event>", payload)` once the entity is saved.
 
 ## Troubleshooting
 
-- **Indexer stuck**: ensure the configured Horizon endpoint is archival. Non-archive nodes prune ledgers and will stall historical syncs.
-- **Rate limits**: lower `--batch-size` and `--workers` for `subquery-node`, or point to a private RPC.
-- **GraphQL empty**: confirm `subquery-node` health at `http://localhost:3001/ready` and inspect `docker compose logs subquery-node`.
-- **NATS not receiving events**: check `docker compose logs express-nats-service` to confirm POSTs, and verify the subject matches your subscriptions.
-- **Schema changes not reflected**: re-run `npm run codegen && npm run build`, then restart the node.
+- Indexing stalls on old ledgers: the Horizon endpoint has to keep full history. Pruned nodes cannot serve old ledgers.
+- Rate limits: lower `--batch-size` and `--workers` in `docker-compose.yml`, or use a private endpoint.
+- GraphQL returns nothing: check `curl http://localhost:3001/ready` and `docker compose logs subquery-node`.
+- Nothing on NATS: `docker compose logs express-nats-service` shows every publish. Check the subject you subscribe to.
+- Schema changes do not show up: run `npm run build` and restart the node.
 
----
+## Known issues
 
-## Monitoring with Grafana
+- Aquarius: the `update_reserves` handler looks for the trade with `txHash` equal to the transaction hash followed by the previous event ID, while trades store the bare hash. The lookup never matches, so Aquarius swaps keep empty reserve fields, no `ReserveAquariusEntity` is written and nothing is published on `lobster.aquarius.swap`.
+- Aquarius: a trade on a pool known only from `src/pool_repertory/` is stored with empty `token_0` and `token_1`.
+- Phoenix: the swap handler reads the transaction meta with a `getTransaction` call to `soroban-testnet.stellar.org`, hard-coded in `src/Phoenix/phoenixparser.ts`. When that RPC does not have the transaction (any mainnet swap, or a testnet one older than what the RPC keeps), the swap is saved with empty `token_0`, `token_1`, `amount_0`, `amount_1`, `fee` and reserves, and is not published.
 
-Expose the SubQuery node metrics endpoint to your Prometheus/Grafana stack to confirm the indexer keeps catching up:
+## Monitoring
 
-1. **Scrape the node**: Add `http://localhost:3001/metrics` (or your deployed URL) as a Prometheus target. This endpoint is enabled by default on the `subquery-node` container.
-2. **Track progress**: The metric `subql_indexer_processing_block_height` reports the latest processed ledger. Configure a Grafana panel to display it or set an alert if it stops increasing.
-3. **Quick sanity check**: Even without Prometheus, you can curl the endpoint locally and verify the value moves upward over time:
-   ```
-   curl http://localhost:3001/metrics | grep subql_indexer_processing_block_height
-   ```
-   If the number is flat or decreasing, inspect your Horizon endpoint, database connectivity, or `docker compose logs subquery-node`.
+The node serves Prometheus metrics at http://localhost:3001/metrics. `subql_indexer_processing_block_height` is the ledger being processed. Compare it with `subql_indexer_target_block_height` to see how far behind the indexer is, or alert when it stops increasing.
 
-This simple check ensures your indexing pipeline is live before downstream services rely on the data.
+```bash
+curl -s http://localhost:3001/metrics | grep subql_indexer_processing_block_height
+```
 
----
+## References
 
-## Support & References
-
-- SubQuery Academy: https://academy.subquery.network
-- SubQuery Discord: https://discord.com/invite/subquery
-- NATS docs: https://docs.nats.io
-- Lobster internal deck: `/home/esteban/Desktop/Lobster/NATS_README.md`
-
-Happy indexing!
+- SubQuery documentation: https://subquery.network/doc/
+- SubQuery Discord: https://discord.com/invite/78zg8aBSMG
+- NATS documentation: https://docs.nats.io

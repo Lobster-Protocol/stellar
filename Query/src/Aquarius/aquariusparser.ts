@@ -18,7 +18,6 @@ import { aquariusPools as aquariusPoolsTestnet } from "../pool_repertory/aquariu
 import { aquariusPools as aquariusPoolsMainnet } from "../pool_repertory/aquarius_pools";
 
 
-// Function to find pool tokens by pool_address
 function getAquariusPoolTokens(poolAddress: string): { token_0: string; token_1: string } | null {
     const NETWORK = process.env.NETWORK || 'testnet'; // mainnet
 
@@ -36,16 +35,8 @@ function getAquariusPoolTokens(poolAddress: string): { token_0: string; token_1:
     return null;
 }
 
-//import fetch from "node-fetch";
-//import http from "http";
-
-// Aquarius event parser functions
-// These handlers decode Soroban event values and topics into Aquarius entities.
-// Each entity is keyed by transaction hash so that fragments in one tx are grouped.
-
 export async function NewPairAquariusEvent(event: SorobanEvent): Promise<void> {
     try {
-        // Parse pool creation: pool address, pool params, and token pair from topics
         const value = event.value as any;
         const mapEntries = value?._value;
 
@@ -53,8 +44,6 @@ export async function NewPairAquariusEvent(event: SorobanEvent): Promise<void> {
             logger.warn(`NewPairAquariusEvent: Invalid mapEntries for event ${event.id}`);
             return;
         }
-
-        //logger.info(JSON.stringify(mapEntries, null, 2));
 
 
         const result = {
@@ -67,11 +56,8 @@ export async function NewPairAquariusEvent(event: SorobanEvent): Promise<void> {
             token_b: "",
             sender: "",
         }
-        //logger.info(JSON.stringify(mapEntries[3]._value[0]._value._attributes, null, 2));
-        //logger.info(JSON.stringify(result, null, 2));
 
         const mytopics: any = event.topic;
-        //logger.info(JSON.stringify(mytopics, null, 2));
 
         if (mytopics?.[1]?._value?.[0]?._value?._value) {
             result.token_a = StrKey.encodeContract(mytopics[1]._value[0]._value._value);
@@ -113,7 +99,6 @@ export async function NewPairAquariusEvent(event: SorobanEvent): Promise<void> {
 
 export async function DepositAquariusEvent(event: SorobanEvent): Promise<void> {
     try {
-        // Parse add liquidity event, including pool id, token amounts, LP shares, and sender
         const value = event.value as any;
         const mapEntries = value?._value;
 
@@ -121,8 +106,6 @@ export async function DepositAquariusEvent(event: SorobanEvent): Promise<void> {
             logger.warn(`DepositAquariusEvent: Invalid mapEntries for event ${event.id}`);
             return;
         }
-
-        //logger.info(JSON.stringify(mapEntries, null, 2));
 
         const result = {
             pool_id: mapEntries[0]?._value?._value ? StrKey.encodeContract(mapEntries[0]._value._value) : "",
@@ -136,7 +119,6 @@ export async function DepositAquariusEvent(event: SorobanEvent): Promise<void> {
         logger.info(JSON.stringify(result, null, 2));
 
         const mytopics: any = event.topic;
-        //logger.info(JSON.stringify(mytopics, null, 2));
 
         if (mytopics?.[1]?._value?.[0]?._value?._value) {
             result.token_a = StrKey.encodeContract(mytopics[1]._value[0]._value._value);
@@ -165,7 +147,6 @@ export async function DepositAquariusEvent(event: SorobanEvent): Promise<void> {
                     : 0
             ).toString()
         });
-        //logger.info(JSON.stringify(entity, null, 2));
         await entity.save();
 
         await postToAPI("lobster.aquarius.deposit", {
@@ -183,7 +164,6 @@ export async function DepositAquariusEvent(event: SorobanEvent): Promise<void> {
 
 export async function WithdrawAquariusEvent(event: SorobanEvent): Promise<void> {
     try {
-        // Parse remove liquidity event, including returned amounts and sender
         const value = event.value as any;
         const mapEntries = value?._value;
 
@@ -191,8 +171,6 @@ export async function WithdrawAquariusEvent(event: SorobanEvent): Promise<void> 
             logger.warn(`WithdrawAquariusEvent: Invalid mapEntries for event ${event.id}`);
             return;
         }
-
-        //logger.info(JSON.stringify(mapEntries, null, 2));
 
         const result = {
             pool_id: mapEntries[0]?._value?._value ? StrKey.encodeContract(mapEntries[0]._value._value) : "",
@@ -206,7 +184,6 @@ export async function WithdrawAquariusEvent(event: SorobanEvent): Promise<void> 
         logger.info(JSON.stringify(result, null, 2));
 
         const mytopics: any = event.topic;
-        //logger.info(JSON.stringify(mytopics, null, 2));
 
         if (mytopics?.[1]?._value?.[0]?._value?._value) {
             result.token_a = StrKey.encodeContract(mytopics[1]._value[0]._value._value);
@@ -235,7 +212,6 @@ export async function WithdrawAquariusEvent(event: SorobanEvent): Promise<void> 
                     : 0
             ).toString()
         });
-        //logger.info(JSON.stringify(entity, null, 2));
         await entity.save();
 
         await postToAPI("lobster.aquarius.withdraw", {
@@ -274,7 +250,6 @@ export async function TradeAquariusEvent(event: SorobanEvent): Promise<void> {
         }
 
 
-        // Parse remove liquidity event, including returned amounts and sender
         const value = event.value as any;
         const mapEntries = value?._value;
 
@@ -296,10 +271,8 @@ export async function TradeAquariusEvent(event: SorobanEvent): Promise<void> {
             amount_1: "",
             sender: "",
         }
-        //logger.info(JSON.stringify(result, null, 2));
 
         const mytopics: any = event.topic;
-        //logger.info(JSON.stringify(mytopics, null, 2));
 
         if (mytopics?.[1]?._value?._value) {
             result.sell_token = StrKey.encodeContract(mytopics[1]._value._value);
@@ -351,7 +324,6 @@ export async function TradeAquariusEvent(event: SorobanEvent): Promise<void> {
                     : 0
             ).toString()
         });
-        //logger.info(JSON.stringify(entity, null, 2));
         await entity.save();
     } catch (error) {
         logger.error(`Error in TradeAquariusEvent for event ${event.id}: ${error}`);
@@ -363,12 +335,11 @@ export async function UpdateReservesAquariusEvent(event: SorobanEvent): Promise<
     try {
         const poolAddress = String(event.contractId ?? "");
         
-        // Try to get pair from database first
         const existingPair = await NewPairAquariusEntity.getByFields([
             ["pair", "=", poolAddress],
         ], { limit: 1 });
 
-        // If not found in database, try repository as fallback
+        // Pools created before START_BLOCK have no NewPair entity; fall back to pool_repertory
         let poolTokens: { token_0: string; token_1: string } | null = null;
         
         if (existingPair.length > 0) {
@@ -387,8 +358,7 @@ export async function UpdateReservesAquariusEvent(event: SorobanEvent): Promise<
         }
 
 
-        // Parse event.id format: "0007139820488888320-0000000002"
-        // Split by '-' to get [ledger, eventIndex]
+        // event.id is "<ledger>-<event index>", e.g. "0007139820488888320-0000000002"
         const eventIdParts = String(event.id ?? "").split('-');
         let previousEventId: string;
 
@@ -425,11 +395,6 @@ export async function UpdateReservesAquariusEvent(event: SorobanEvent): Promise<
             ["txHash", "=", `${event.transaction?.hash ?? ""}${previousEventId}`],
         ], { limit: 1 });
 
-        //`${event.transaction?.hash}` + event.id
-
-        //   logger.info(JSON.stringify(existingTrade, null, 2));
-        //   logger.info(JSON.stringify(existingPair, null, 2));
-
         if (existingTrade.length == 0) {
             return;
         }
@@ -453,7 +418,6 @@ export async function UpdateReservesAquariusEvent(event: SorobanEvent): Promise<
                     : 0
             ).toString()
         }
-        //logger.info(JSON.stringify(result, null, 2));
 
         if (existingTrade.length > 0 && existingTrade[0]) {
             existingTrade[0].reserve_after0 = result.reserve_a;

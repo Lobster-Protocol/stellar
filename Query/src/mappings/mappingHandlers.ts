@@ -1,8 +1,3 @@
-// Central mapping module that wires Soroban events to specific parsers and entities
-// - Phoenix handlers: parse pool creation, liquidity, and swap event fragments into Phoenix models
-// - Soroswap handlers: delegate to Soroswap parser functions
-// - Aquarius handlers: delegate to Aquarius parser functions (optionally broadcast over WebSocket)
-// Utilities at bottom: account lookup/creation and safe address decoding helpers
 import { SorobanEvent } from "@subql/types-stellar";
 import { StrKey } from "@stellar/stellar-base";
 
@@ -18,170 +13,157 @@ import { swapSoroswapEvent, depositSoroswapEvent, removeSoroswapEvent, newPairSo
 import http from "http";
 
 
-//////////////////////////////////////////// PHOENIX //////////////////////////////////////
-// Each Phoenix event arrives as a small fragment (topic/value). We store pieces
-// under the same transaction hash so a full record can be assembled across
-// multiple handler calls for the same tx.
+// Phoenix emits one event per field, so the parsers collect the pieces under the transaction hash.
 
 export async function handleNewPairPhoenixTokenAEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW NewPairPhoenixTokenA EVENT /////");
+  logger.info("Received NewPairPhoenixTokenA event");
   await NewPairPhoenixTokenAEvent(event);
 }
 export async function handleNewPairPhoenixTokenBEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW NewPairPhoenixTokenB EVENT /////");
+  logger.info("Received NewPairPhoenixTokenB event");
   await NewPairPhoenixTokenBEvent(event);
 }
 export async function handleNewPairPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW NewPairPhoenix EVENT /////");
+  logger.info("Received NewPairPhoenix event");
   await NewPairPhoenixEvent(event);
 }
 export async function handleStackingTokenContractPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW StackingTokenContractPhoenix EVENT /////");
+  logger.info("Received StackingTokenContractPhoenix event");
   await StackingTokenContractPhoenixTokenBEvent(event);
 }
 
 
 
 export async function handleDepositSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositSenderPhoenix EVENT /////");
+  logger.info("Received DepositSenderPhoenix event");
   await DepositSenderPhoenixEvent(event);
 }
 export async function handleDepositTokenAPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositTokenAPhoenix EVENT /////");
+  logger.info("Received DepositTokenAPhoenix event");
   await DepositTokenAPhoenixEvent(event);
 }
 export async function handleDepositTokenAAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositTokenAAmountPhoenix EVENT /////");
+  logger.info("Received DepositTokenAAmountPhoenix event");
   await DepositTokenAAmountPhoenixEvent(event);
 }
 export async function handleDepositTokenBPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositTokenBPhoenix EVENT /////");
+  logger.info("Received DepositTokenBPhoenix event");
   await DepositTokenBPhoenixEvent(event);
 }
 export async function handleDepositTokenBAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositTokenBAmountPhoenix EVENT /////");
+  logger.info("Received DepositTokenBAmountPhoenix event");
   await DepositTokenBAmountPhoenixEvent(event);
 }
 
 
 
 export async function handleSwapSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapSenderPhoenix EVENT /////");
+  logger.info("Received SwapSenderPhoenix event");
   await SwapSenderPhoenixEvent(event);
 }
 export async function handleSwapSellTokenPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapSellTokenPhoenix EVENT /////");
+  logger.info("Received SwapSellTokenPhoenix event");
   await SwapSellTokenPhoenixEvent(event);
 }
 export async function handleSwapOfferAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapOfferAmountPhoenix EVENT /////");
+  logger.info("Received SwapOfferAmountPhoenix event");
   await SwapOfferAmountPhoenixEvent(event);
 }
 export async function handleSwapActualReceivedPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapActualReceivedPhoenix EVENT /////");
+  logger.info("Received SwapActualReceivedPhoenix event");
   await SwapActualReceivedPhoenixEvent(event);
 }
 export async function handleSwapReturnAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapReturnAmountPhoenix EVENT /////");
+  logger.info("Received SwapReturnAmountPhoenix event");
   await SwapReturnAmountPhoenixEvent(event);
 }
 export async function handleSwapSpreadAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapSpreadAmountPhoenix EVENT /////");
+  logger.info("Received SwapSpreadAmountPhoenix event");
   await SwapSpreadAmountPhoenixEvent(event);
 }
 export async function handleSwapReferralFeePhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapReferralFeePhoenix EVENT /////");
+  logger.info("Received SwapReferralFeePhoenix event");
   await SwapReferralFeePhoenixEvent(event);
 }
 export async function handleSwapBuyTokenPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapBuyTokenPhoenix EVENT /////");
+  logger.info("Received SwapBuyTokenPhoenix event");
   await SwapBuyTokenPhoenixEvent(event);
 }
 
 
 
 export async function handleWithdrawSenderPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW WithdrawSenderPhoenix EVENT /////");
+  logger.info("Received WithdrawSenderPhoenix event");
   await WithdrawSenderPhoenixEvent(event);
 }
 export async function handleWithdrawSharesAmountPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW WithdrawSharesAmountPhoenix EVENT /////");
+  logger.info("Received WithdrawSharesAmountPhoenix event");
   await WithdrawSharesAmountPhoenixEvent(event);
 }
 export async function handleWithdrawReturnAmountAPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW WithdrawReturnAmountAPhoenix EVENT /////");
+  logger.info("Received WithdrawReturnAmountAPhoenix event");
   await WithdrawReturnAmountAPhoenixEvent(event);
 }
 export async function handleWithdrawReturnAmountBPhoenixEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW WithdrawReturnAmountBPhoenix EVENT /////");
+  logger.info("Received WithdrawReturnAmountBPhoenix event");
   await WithdrawReturnAmountBPhoenixEvent(event);
 }
 
-///////////////////////////////////////// SOROSWAP //////////////////////////
-// Simple delegation to Soroswap parsers
+// Soroswap
 
 export async function handleRemoveEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW RemoveSoroswap EVENT /////");
+  logger.info("Received RemoveSoroswap event");
   await removeSoroswapEvent(event);
 }
 
 export async function handleDepositEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositSoroswap EVENT /////");
+  logger.info("Received DepositSoroswap event");
   await depositSoroswapEvent(event);
 }
 
 export async function handleNewPairEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW NewPairSoroswap EVENT /////");
+  logger.info("Received NewPairSoroswap event");
   await newPairSoroswaoEvent(event);
 }
 
 export async function handleSwapRouterEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapSoroswap EVENT /////");
+  logger.info("Received SwapSoroswap event");
   await swapSoroswapEvent(event);
 }
 export async function handleSyncEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SyncSoroswap EVENT /////");
+  logger.info("Received SyncSoroswap event");
   await syncSoroswapEvent(event);
 }
 
 export async function handleSwapPairEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW SwapPairSoroswap EVENT /////");
+  logger.info("Received SwapPairSoroswap event");
 
   await swapPairEvent(event);
 }
 
-//////////////////////////////////////////// AQUARIUS /////////////////////////////////
-// Delegation to Aquarius parsers; WebSocket broadcast integration can be enabled
-// by initializing the WebSocket service and passing it through
-
+// Aquarius
 
 export async function handleNewPairAquariusEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW NewPairAquarius EVENT /////");
-   // Initialize WebSocket if needed
-   //initializeWebSocketIfNeeded();
-  await NewPairAquariusEvent(event);//, wsService);
+  logger.info("Received NewPairAquarius event");
+  await NewPairAquariusEvent(event);
 }
 export async function handleDepositAquariusEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW DepositAquarius EVENT /////");
-   // Initialize WebSocket if needed
-   //initializeWebSocketIfNeeded();
-  await DepositAquariusEvent(event);//, wsService);
+  logger.info("Received DepositAquarius event");
+  await DepositAquariusEvent(event);
 }
 export async function handleWithdrawAquariusEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW WithdrawAquarius EVENT /////");
-   // Initialize WebSocket if needed
-   //initializeWebSocketIfNeeded();
-  await WithdrawAquariusEvent(event);//, wsService);
+  logger.info("Received WithdrawAquarius event");
+  await WithdrawAquariusEvent(event);
 }
 export async function handleTradeAquariusEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW TradeAquarius EVENT /////");
+  logger.info("Received TradeAquarius event");
 
-  await TradeAquariusEvent(event);//, wsService);
+  await TradeAquariusEvent(event);
 }
 
 export async function handleUpdateReservesAquariusEvent(event: SorobanEvent): Promise<void> {
-  logger.info("///// RAW UpdateReservesAquarius EVENT /////");
-  await UpdateReservesAquariusEvent(event);//, wsService);
+  logger.info("Received UpdateReservesAquarius event");
+  await UpdateReservesAquariusEvent(event);
 }
 
 
@@ -202,8 +184,8 @@ export function postToAPI(subject: string, data: any): Promise<any> {
     const postData = JSON.stringify({ subject, data });
 
     const options = {
-      hostname: 'express-nats-service',  // or your API host
-      port: 8080,            // your API port
+      hostname: 'express-nats-service',
+      port: 8080,
       path: '/publish',
       method: 'POST',
       headers: {

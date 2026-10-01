@@ -4,13 +4,12 @@ import { SorobanEvent } from "@subql/types-stellar";
 import { StrKey } from "@stellar/stellar-base";
 
 import { postToAPI, safeDecodeAddress } from "../mappings/mappingHandlers";
-import { randomUUID } from "crypto"; // Node 14+ has this built-in
+import { randomUUID } from "crypto";
 
 import { soroswapPools as soroswapPoolsTestnet } from "../pool_repertory/soroswap_pools_testnet";
 import { soroswapPools as soroswapPoolsMainnet } from "../pool_repertory/soroswap_pools";
 
 
-// Function to find pool tokens by pool_address
 function getSoroswapPoolTokens(poolAddress: string): { token_0: string; token_1: string } | null {
     const NETWORK = process.env.NETWORK || 'testnet'; // mainnet
 
@@ -28,38 +27,30 @@ function getSoroswapPoolTokens(poolAddress: string): { token_0: string; token_1:
     return null;
 }
 
-// Soroswap event parser functions
-// These handlers parse Soroban event maps into typed entities for Soroswap.
-// Entities are keyed by transaction hash; some events update a previously created
-// entity from the same transaction (e.g., swap direction/order fields).
-
-// Interface for AddLiquidityEvent
 export interface AddLiquidityEvent {
-    token_a: string;         // Address of token_a
-    token_b: string;         // Address of token_b
-    pair: string;           // Address of the liquidity pair
+    token_a: string;
+    token_b: string;
+    pair: string;
     amount_a: string;        // Use string for BigInt-safe storage
     amount_b: string;
     liquidity: string;
     to: string;             // Address to receive liquidity tokens
 }
 
-// Interface for RemoveLiquidityEvent
 export interface RemoveLiquidityEvent {
-    token_a: string;         // Address of token_a
-    token_b: string;         // Address of token_b
-    pair: string;           // Address of the liquidity pair
+    token_a: string;
+    token_b: string;
+    pair: string;
     amount_a: string;        // Use string for BigInt-safe storage
     amount_b: string;
     liquidity: string;
     to: string;             // Address to receive liquidity tokens
 }
 
-// Interface for NewPairEvent
 export interface NewPairEvent {
-    token_0: string;         // Address of token_0
-    token_1: string;         // Address of token_1
-    pair: string;           // Address of the new pair
+    token_0: string;
+    token_1: string;
+    pair: string;
     new_pairs_length: string; // u32
 }
 
@@ -69,7 +60,6 @@ interface ParsedSwapEvent {
     to: string;
 }
 
-// Handle remove liquidity event and persist to RemoveLiquiditEntity
 export async function removeSoroswapEvent(event: SorobanEvent): Promise<void> {
     try {
         const value = event.value as any;
@@ -79,9 +69,6 @@ export async function removeSoroswapEvent(event: SorobanEvent): Promise<void> {
             logger.warn(`removeSoroswapEvent: Invalid mapEntries for event ${event.id}`);
             return;
         }
-
-        //logger.info(JSON.stringify(mapEntries, null, 2))
-
 
         const result: RemoveLiquidityEvent = {
             token_a: "",
@@ -162,9 +149,8 @@ export async function removeSoroswapEvent(event: SorobanEvent): Promise<void> {
 
         }
         logger.info(JSON.stringify(result, null, 2))
-        // Build ID = txHash-logIndex (unique per event)
+        // Hash plus event id, so a transaction with several events gets one row per event
         const id = `${event.transaction?.hash ?? ""}${event.id ?? ""}`;
-        //logger.info(`id: ${id}`)
 
         const entity = RemoveLiquiditEntity.create({
             id: id,
@@ -183,7 +169,6 @@ export async function removeSoroswapEvent(event: SorobanEvent): Promise<void> {
                     : 0
             ).toString()
         });
-        //logger.info(JSON.stringify(entity, null, 2));
         await entity.save();
 
         await postToAPI("lobster.soroswap.withdraw", {
@@ -199,7 +184,6 @@ export async function removeSoroswapEvent(event: SorobanEvent): Promise<void> {
     }
 }
 
-// Handle add liquidity event and persist to AddLiquidityEventEntity
 export async function depositSoroswapEvent(event: SorobanEvent): Promise<void> {
     try {
         const value = event.value as any;
@@ -209,9 +193,6 @@ export async function depositSoroswapEvent(event: SorobanEvent): Promise<void> {
             logger.warn(`depositSoroswapEvent: Invalid mapEntries for event ${event.id}`);
             return;
         }
-
-        //logger.info(JSON.stringify(mapEntries, null, 2))
-
 
         const result: AddLiquidityEvent = {
             token_a: "",
@@ -282,7 +263,6 @@ export async function depositSoroswapEvent(event: SorobanEvent): Promise<void> {
 
                 case "to":
                     if (entry?._attributes?.val?._value?._value?._value) {
-                        //logger.info(JSON.stringify(entry._attributes, null, 2))
                         logger.info(safeDecodeAddress(entry._attributes.val._value._value._value));
                         result.to = (safeDecodeAddress(entry._attributes.val._value._value._value));
                     }
@@ -291,9 +271,8 @@ export async function depositSoroswapEvent(event: SorobanEvent): Promise<void> {
 
         }
         logger.info(JSON.stringify(result, null, 2))
-        // Build ID = txHash-logIndex (unique per event)
+        // Hash plus event id, so a transaction with several events gets one row per event
         const id = `${event.transaction?.hash ?? ""}${event.id ?? ""}`;
-        //logger.info(`id: ${id}`)
 
         const entity = AddLiquidityEventEntity.create({
             id: id,
@@ -312,7 +291,6 @@ export async function depositSoroswapEvent(event: SorobanEvent): Promise<void> {
                     : 0
             ).toString()
         });
-        //logger.info(JSON.stringify(entity, null, 2));
         await entity.save();
 
         await postToAPI("lobster.soroswap.deposit", {
@@ -323,24 +301,11 @@ export async function depositSoroswapEvent(event: SorobanEvent): Promise<void> {
             emitter: String(event.contractId ?? ""),
             tx: event.transaction?.hash,
         });
-
-        // const newPairData = await NewPairEventEntity.get(id);
-
-        // if (!newPairData) {
-        //     console.warn(`Pair entity not found for ${id}`);
-        //     return;
-        // }
-
-        // newPairData.initial_0 = result.amount_a;
-        // newPairData.initial_1 = result.amount_b;
-
-        // await newPairData.save();
     } catch (error) {
         logger.error(`Error in depositSoroswapEvent for event ${event.id}: ${error}`);
     }
 }
 
-// Handle new pair event and persist to NewPairEventEntity
 export async function newPairSoroswaoEvent(event: SorobanEvent): Promise<void> {
     try {
         const value = event.value as any;
@@ -351,7 +316,6 @@ export async function newPairSoroswaoEvent(event: SorobanEvent): Promise<void> {
             return;
         }
 
-        // Using an object literal
         const result: NewPairEvent = {
             token_0: "",
             token_1: "",
@@ -403,9 +367,7 @@ export async function newPairSoroswaoEvent(event: SorobanEvent): Promise<void> {
             }
         }
         logger.info(JSON.stringify(result, null, 2))
-        // Build ID = txHash-logIndex (unique per event)
         const id = `${event.transaction?.hash ?? ""}`;
-        //logger.info(`id: ${id}`)
 
         const entity = NewPairEventEntity.create({
             id: id,
@@ -423,7 +385,6 @@ export async function newPairSoroswaoEvent(event: SorobanEvent): Promise<void> {
                     : 0
             ).toString()
         });
-        //logger.info(JSON.stringify(entity, null, 2));
         await entity.save();
 
         await postToAPI("lobster.soroswap.newpair", {
@@ -439,17 +400,9 @@ export async function newPairSoroswaoEvent(event: SorobanEvent): Promise<void> {
     }
 }
 
-// Handle swap event part 1: amounts, path, and recipient
 export async function swapSoroswapEvent(event: SorobanEvent): Promise<void> {
     try {
-        // const blockHeight = event.ledger?.sequence;
-        // const timestamp = event.ledgerClosedAt; // JS Date
-        // const contracId = event.contractId;
-        // logger.info(`Block height: ${blockHeight}`);
-        // logger.info(`Timestamp: ${timestamp}`); 
         const value = event.value as any;
-        //logger.info(`ContractID: ${contracId}`)
-        //logger.info(JSON.stringify(value, null, 2));
 
         const mapEntries = value?._value;
         if (!mapEntries || !Array.isArray(mapEntries)) {
@@ -457,10 +410,7 @@ export async function swapSoroswapEvent(event: SorobanEvent): Promise<void> {
             return;
         }
 
-        //logger.info(JSON.stringify(mapEntries, null, 2))
         const result: ParsedSwapEvent = { amounts: [], path: [], to: "" };
-
-        //logger.info(JSON.stringify(mapEntries[0], null, 2))
 
         for (const entry of mapEntries) {
             if (!entry?._attributes?.key?._value) continue;
@@ -506,31 +456,6 @@ export async function swapSoroswapEvent(event: SorobanEvent): Promise<void> {
 
             logger.info(JSON.stringify(result, null, 2))
         }
-
-        // Build ID = txHash-logIndex (unique per event)
-        const id = `${event.transaction?.hash ?? ""}`;
-        //logger.info(`id: ${id}`)
-
-        // const entity = await getOrCreateSwapEntity(event);
-
-        // entity.sender = result.to;
-        // entity.token_0 = result.path[0];
-        // entity.token_1 = result.path[1];
-        // entity.amount_0 = result.amounts[0];
-        // entity.amount_1 = result.amounts[1];
-
-        // if (entity.order_amount != "" && entity.order_token == "") {
-        //     const [orderInStr, orderOutStr] = entity.order_amount.split("->");
-        //     if (orderInStr === entity.amount_0 && orderOutStr === entity.amount_1) {
-        //         entity.order_token = `${entity.token_0}->${entity.token_1}`;
-        //         logger.info(`Order matches token0 -> token1 (${entity.order_token})`);
-        //     } else {
-        //         entity.order_token = `${entity.token_1}->${entity.token_0}`;
-        //         logger.info(`Order matches token1 -> token0 (${entity.order_token})`);
-        //     }
-        // }
-
-        // await entity.save();
     } catch (error) {
         logger.error(`Error in swapSoroswapEvent for event ${event.id}: ${error}`);
     }
@@ -575,23 +500,13 @@ export async function syncSoroswapEvent(event: SorobanEvent): Promise<void> {
         }
         logger.info(JSON.stringify(result, null, 2));
 
-        // const existingPool = await NewPairEventEntity.getByFields([
-        //     ["pair", "=", String(event.contractId ?? "")],
-        // ], { limit: 1 });
-
-        // if (existingPool.length === 0) {
-        //     logger.info("Pool not found");
-        //     return;
-        // }
-
         const poolAddress = String(event.contractId ?? "");
 
-        // Try to get pair from database first
         const myPair = await NewPairEventEntity.getByFields([
             ["pair", "=", poolAddress],
         ], { limit: 1 });
 
-        // If not found in database, try repository as fallback
+        // Pools created before START_BLOCK have no NewPair entity; fall back to pool_repertory
         let poolTokens: { token_0: string; token_1: string } | null = null;
 
         if (myPair.length > 0 && myPair[0]) {
@@ -632,17 +547,10 @@ export async function syncSoroswapEvent(event: SorobanEvent): Promise<void> {
     }
 }
 
-// Handle swap event part 2: amounts in/out to derive order direction
+// Swap events carry only amounts, so tokens come from the pair and reserves from the preceding sync
 export async function swapPairEvent(event: SorobanEvent): Promise<void> {
     try {
-        // const blockHeight = event.ledger?.sequence;
-        // const timestamp = event.ledgerClosedAt; // JS Date
-        // const contracId = event.contractId;
-        // logger.info(`Block height: ${blockHeight}`);
-        // logger.info(`Timestamp: ${timestamp}`); 
         const value = event.value as any;
-        //logger.info(`ContractID: ${contracId}`)
-        //logger.info(JSON.stringify(value, null, 2));
 
         const mapEntries = value?._value;
         if (!mapEntries || !Array.isArray(mapEntries)) {
@@ -650,7 +558,6 @@ export async function swapPairEvent(event: SorobanEvent): Promise<void> {
             return;
         }
 
-        //logger.info(JSON.stringify(mapEntries, null, 2))
         const result = {
             amount_0_in: "", amount_0_out: "", amount_1_in: "", amount_1_out: "", sell_token: "", buy_token: "", sell_amount: "", buy_amount: "", order_token: "", order_amount: "", reserve_before_a: "", reserve_before_b: "",
             reserve_after_a: "",
@@ -696,18 +603,13 @@ export async function swapPairEvent(event: SorobanEvent): Promise<void> {
         }
 
 
-        // const existingPool = await NewPairEventEntity.getByFields([
-        //     ["pair", "=", String(event.contractId ?? "")],
-        // ], { limit: 1 });
-
         const poolAddress = String(event.contractId ?? "");
 
-        // Try to get pair from database first
         const myPair = await NewPairEventEntity.getByFields([
             ["pair", "=", poolAddress],
         ], { limit: 1 });
 
-        // If not found in database, try repository as fallback
+        // Pools created before START_BLOCK have no NewPair entity; fall back to pool_repertory
         let poolTokens: { token_0: string; token_1: string } | null = null;
 
         if (myPair.length > 0 && myPair[0]) {
@@ -725,9 +627,7 @@ export async function swapPairEvent(event: SorobanEvent): Promise<void> {
             }
         }
 
-        // Parse event.id format: "0007139820488888320-0000000002"
-        // Split by '-' to get [ledger, eventIndex]
-        // Sync event should be event.id + 1
+        // event.id is "<ledger>-<index>" (e.g. "0007139820488888320-0000000002"); the sync is at index - 1
         const eventIdParts = String(event.id ?? "").split('-');
         let nextEventId: string;
 
@@ -756,10 +656,9 @@ export async function swapPairEvent(event: SorobanEvent): Promise<void> {
         // Construct the sync entity ID using the same pattern as syncSoroswapEvent
         const syncEntityId = `${event.transaction?.hash ?? ""}${nextEventId}`;
 
-        // Try to get sync by ID first
         let existingSync = await SyncEventEntity.get(syncEntityId);
 
-        // Fallback: try by block (for backwards compatibility)
+        // Fallback: try by block
         if (!existingSync) {
             const syncs = await SyncEventEntity.getByFields([
                 ["block", "=", (event.ledger?.sequence ?? 0).toString()],
