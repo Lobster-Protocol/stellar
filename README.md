@@ -143,3 +143,9 @@ GPL-3.0, see [LICENSE](LICENSE). `Query/` carries its own MIT [license](Query/LI
 - [Soroswap](https://soroswap.finance/)
 - [Phoenix](https://www.phoenix-hub.io/)
 - [Aquarius](https://aqua.network/)
+
+## Offline Soroswap deadline regressions
+
+[Run the current-contract tests](integration-tests/soroswap/README.md) for
+add/withdraw expiry, equality, balance preservation and a successful retry.
+Soroswap deadlines are Unix timestamp seconds, not ledger sequence numbers.

@@ -1,0 +1,11 @@
+[package]
+name = "kanatoko-lobster-deadline-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "GPL-3.0-only"
+
+[workspace]
+
+[dev-dependencies]
+kanatoko = { version = "=29.1.2", features = ["capture"] }
