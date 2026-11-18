@@ -146,6 +146,4 @@ GPL-3.0, see [LICENSE](LICENSE). `Query/` carries its own MIT [license](Query/LI
 
 ## Offline Soroswap deadline regressions
 
-[Run the current-contract tests](integration-tests/soroswap/README.md) for
-add/withdraw expiry, equality, balance preservation and a successful retry.
-Soroswap deadlines are Unix timestamp seconds, not ledger sequence numbers.
+Soroswap expects a future Unix timestamp in seconds. The [Kanatoko tests](integration-tests/soroswap/README.md) show which deadlines the router accepts for adding and withdrawing liquidity.

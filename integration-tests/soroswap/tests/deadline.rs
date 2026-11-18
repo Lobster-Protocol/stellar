@@ -8,16 +8,16 @@ const USDC: &str = "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75";
 const XLM_AMOUNT: i128 = 100_000_000;
 
 fn wasm() -> &'static [u8] {
-    include_bytes!("../wasm/lobster_contract.wasm")
+    include_bytes!("../target/wasm32v1-none/release/lobster_contract.wasm")
 }
 
 fn runner(name: &str) -> AutoRunner {
-    let path = format!("{}/fixtures/{name}.json", env!("CARGO_MANIFEST_DIR"));
-    let runner = mainnet().cache(path);
-    match std::env::var("KANATOKO_CAPTURE_RPC") {
-        Ok(url) => runner.rpc_url(url).rpc_rate_limit(4).refresh(),
-        Err(_) => runner.offline(),
-    }
+    mainnet()
+        .cache(format!(
+            "{}/fixtures/{name}.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .offline()
 }
 
 struct Position {
