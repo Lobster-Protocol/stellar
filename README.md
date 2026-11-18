@@ -143,7 +143,3 @@ GPL-3.0, see [LICENSE](LICENSE). `Query/` carries its own MIT [license](Query/LI
 - [Soroswap](https://soroswap.finance/)
 - [Phoenix](https://www.phoenix-hub.io/)
 - [Aquarius](https://aqua.network/)
-
-## Offline Soroswap deadline regressions
-
-Soroswap expects a future Unix timestamp in seconds. The [Kanatoko tests](integration-tests/soroswap/README.md) show which deadlines the router accepts for adding and withdrawing liquidity.
