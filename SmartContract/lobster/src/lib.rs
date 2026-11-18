@@ -512,7 +512,7 @@ impl Lobster {
     /// - `amount1`: Desired amount of token1 to add
     /// - `amount0_min`: Minimum amount of token0 to accept (slippage protection)
     /// - `amount1_min`: Minimum amount of token1 to accept (slippage protection)
-    /// - `deadline_ledger`: Ledger number deadline for the transaction
+    /// - `deadline_ledger`: Unix timestamp in seconds; Soroswap requires it to be strictly in the future
     /// - `router_address`: Address of the Soroswap router
     ///
     /// # Access
@@ -553,7 +553,7 @@ impl Lobster {
     /// - `amount1`: Desired amount of token1 to add
     /// - `amount0_min`: Minimum amount of token0 to accept (slippage protection)
     /// - `amount1_min`: Minimum amount of token1 to accept (slippage protection)
-    /// - `deadline_ledger`: Ledger number deadline for the transaction
+    /// - `deadline_ledger`: Unix timestamp in seconds; Soroswap requires it to be strictly in the future
     /// - `router_address`: Address of the Soroswap router
     ///
     /// # Panics
@@ -815,7 +815,7 @@ impl Lobster {
     /// - `amount1_min`: Minimum amount of token1 to receive (slippage protection)
     /// - `pool_address`: Address of the Soroswap pool to withdraw from
     /// - `router_address`: Address of the Soroswap router
-    /// - `deadline`: Ledger number deadline for the transaction
+    /// - `deadline`: Unix timestamp in seconds; Soroswap requires it to be strictly in the future
     ///
     /// # Access
     /// Only owner or multisig admin
@@ -852,7 +852,7 @@ impl Lobster {
     /// - `amount1_min`: Minimum amount of token1 to receive (slippage protection)
     /// - `pool_address`: Address of the Soroswap pool to withdraw from
     /// - `router_address`: Address of the Soroswap router
-    /// - `deadline`: Ledger number deadline for the transaction
+    /// - `deadline`: Unix timestamp in seconds; Soroswap requires it to be strictly in the future
     ///
     /// # Panics
     /// - If pool queries fail

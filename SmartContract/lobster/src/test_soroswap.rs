@@ -69,7 +69,7 @@ impl MockSoroswapRouter {
 
     // Router add_liquidity returns (amountA, amountB, liquidity)
     pub fn add_liquidity(
-        _env: Env,
+        env: Env,
         _token_a: Address,
         _token_b: Address,
         amount_a_desired: i128,
@@ -77,23 +77,25 @@ impl MockSoroswapRouter {
         _amount_a_min: i128,
         _amount_b_min: i128,
         _to: Address,
-        _deadline: u64,
+        deadline: u64,
     ) -> (i128, i128, i128) {
+        assert!(env.ledger().timestamp() < deadline, "Soroswap deadline expired");
         // Return the desired amounts directly and a fixed liquidity
         (amount_a_desired, amount_b_desired, 1000i128)
     }
 
     // Router remove_liquidity returns (amountA, amountB)
     pub fn remove_liquidity(
-        _env: Env,
+        env: Env,
         _token_a: Address,
         _token_b: Address,
         liquidity: i128,
         _amount_a_min: i128,
         _amount_b_min: i128,
         _to: Address,
-        _deadline: u64,
+        deadline: u64,
     ) -> (i128, i128) {
+        assert!(env.ledger().timestamp() < deadline, "Soroswap deadline expired");
         // Split liquidity arbitrarily into token amounts for predictability
         let a = liquidity / 2;
         let b = liquidity - a;
@@ -548,4 +550,29 @@ fn test_withdraw_soroswap_collects_fee_on_profit() {
 
     assert!(token0.balance(&setup.multisig) > 0, "no fee leg reached LOBSTER on token0");
     assert!(token1.balance(&setup.multisig) > 0, "no fee leg reached LOBSTER on token1");
+}
+
+#[test]
+fn soroswap_mock_rejects_nonfuture_deadlines() {
+    let setup = SoroswapTestSetup::new();
+    let router = setup.mock_soroswap_router_client();
+    let now = setup.env.ledger().timestamp();
+    for deadline in [now - 1, now] {
+        assert!(router.try_add_liquidity(
+            &setup.token0_address, &setup.token1_address, &100, &200,
+            &0, &0, &setup.owner, &deadline,
+        ).is_err());
+        assert!(router.try_remove_liquidity(
+            &setup.token0_address, &setup.token1_address, &100,
+            &0, &0, &setup.owner, &deadline,
+        ).is_err());
+    }
+    assert_eq!(router.add_liquidity(
+        &setup.token0_address, &setup.token1_address, &100, &200,
+        &0, &0, &setup.owner, &(now + 1),
+    ), (100, 200, 1000));
+    assert_eq!(router.remove_liquidity(
+        &setup.token0_address, &setup.token1_address, &100,
+        &0, &0, &setup.owner, &(now + 1),
+    ), (50, 50));
 }
